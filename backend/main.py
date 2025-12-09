@@ -11,8 +11,20 @@ import asyncio
 
 from . import storage
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
+from .config import validate_config
 
 app = FastAPI(title="LLM Council API")
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Validate configuration on startup."""
+    try:
+        validate_config()
+        print("Configuration validated successfully")
+    except ValueError as e:
+        print(f"FATAL: {e}")
+        raise SystemExit(1)
 
 # Enable CORS for local development
 app.add_middleware(
