@@ -12,6 +12,7 @@ import asyncio
 from . import storage
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
 from .config import validate_config
+from .storage_utils import InvalidConversationIdError, PathTraversalError
 
 app = FastAPI(title="LLM Council API")
 
@@ -85,10 +86,15 @@ async def create_conversation(request: CreateConversationRequest):
 @app.get("/api/conversations/{conversation_id}", response_model=Conversation)
 async def get_conversation(conversation_id: str):
     """Get a specific conversation with all its messages."""
-    conversation = storage.get_conversation(conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    return conversation
+    try:
+        conversation = storage.get_conversation(conversation_id)
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        return conversation
+    except InvalidConversationIdError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PathTraversalError as e:
+        raise HTTPException(status_code=400, detail="Invalid conversation path")
 
 
 @app.post("/api/conversations/{conversation_id}/message")
@@ -97,10 +103,15 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     Send a message and run the 3-stage council process.
     Returns the complete response with all stages.
     """
-    # Check if conversation exists
-    conversation = storage.get_conversation(conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+    try:
+        # Check if conversation exists
+        conversation = storage.get_conversation(conversation_id)
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+    except InvalidConversationIdError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PathTraversalError as e:
+        raise HTTPException(status_code=400, detail="Invalid conversation path")
 
     # Check if this is the first message
     is_first_message = len(conversation["messages"]) == 0
@@ -141,10 +152,15 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
     Send a message and stream the 3-stage council process.
     Returns Server-Sent Events as each stage completes.
     """
-    # Check if conversation exists
-    conversation = storage.get_conversation(conversation_id)
-    if conversation is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
+    try:
+        # Check if conversation exists
+        conversation = storage.get_conversation(conversation_id)
+        if conversation is None:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+    except InvalidConversationIdError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except PathTraversalError as e:
+        raise HTTPException(status_code=400, detail="Invalid conversation path")
 
     # Check if this is the first message
     is_first_message = len(conversation["messages"]) == 0
