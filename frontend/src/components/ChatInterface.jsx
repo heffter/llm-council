@@ -7,7 +7,7 @@ import './ChatInterface.css';
 
 // Allowed file extensions for upload
 const ALLOWED_EXTENSIONS = ['.md', '.txt', '.json', '.js', '.jsx', '.ts', '.tsx', '.py', '.html', '.css', '.yaml', '.yml', '.xml', '.csv'];
-const MAX_FILE_SIZE = 1024 * 1024; // 1MB
+const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
 export default function ChatInterface({
   conversation,
@@ -48,7 +48,7 @@ export default function ChatInterface({
 
     // Validate file size
     if (file.size > MAX_FILE_SIZE) {
-      setFileError(`File too large. Maximum size: ${MAX_FILE_SIZE / 1024}KB`);
+      setFileError(`File too large. Maximum size: ${MAX_FILE_SIZE / (1024 * 1024)}MB`);
       setUploadedFile(null);
       e.target.value = '';
       return;
@@ -189,19 +189,56 @@ export default function ChatInterface({
 
       {conversation.messages.length === 0 && (
         <form className="input-form" onSubmit={handleSubmit}>
-          <textarea
-            className="message-input"
-            placeholder="Ask your question... (Shift+Enter for new line, Enter to send)"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={isLoading}
-            rows={3}
-          />
+          <div className="input-wrapper">
+            <textarea
+              className="message-input"
+              placeholder="Ask your question... (Shift+Enter for new line, Enter to send)"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isLoading}
+              rows={3}
+            />
+
+            {/* File upload section */}
+            <div className="file-upload-section">
+              <input
+                ref={fileInputRef}
+                type="file"
+                id="file-upload"
+                className="file-input-hidden"
+                accept={ALLOWED_EXTENSIONS.join(',')}
+                onChange={handleFileSelect}
+                disabled={isLoading}
+              />
+              <label htmlFor="file-upload" className={`file-upload-button ${isLoading ? 'disabled' : ''}`}>
+                Attach File
+              </label>
+
+              {uploadedFile && (
+                <div className="uploaded-file-badge">
+                  <span className="file-name">{uploadedFile.name}</span>
+                  <button
+                    type="button"
+                    className="remove-file-button"
+                    onClick={handleRemoveFile}
+                    aria-label="Remove file"
+                  >
+                    x
+                  </button>
+                </div>
+              )}
+
+              {fileError && (
+                <div className="file-error">{fileError}</div>
+              )}
+            </div>
+          </div>
+
           <button
             type="submit"
             className="send-button"
-            disabled={!input.trim() || isLoading}
+            disabled={(!input.trim() && !uploadedFile) || isLoading}
           >
             Send
           </button>

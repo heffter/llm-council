@@ -3,6 +3,55 @@ import ReactMarkdown from 'react-markdown';
 import './Stage2.css';
 
 /**
+ * Friendly display names for common models.
+ * Maps model identifiers to shorter, readable names for tabs.
+ */
+const MODEL_DISPLAY_NAMES = {
+  // OpenAI models
+  'gpt-4.1': 'GPT-4.1',
+  'gpt-4': 'GPT-4',
+  'gpt-4o': 'GPT-4o',
+  'gpt-4o-mini': 'GPT-4o Mini',
+  'gpt-4-turbo': 'GPT-4 Turbo',
+  'gpt-3.5-turbo': 'GPT-3.5',
+  'o1': 'o1',
+  'o1-mini': 'o1 Mini',
+  'o1-preview': 'o1 Preview',
+  'o3-mini': 'o3 Mini',
+  // Anthropic models
+  'claude-3-5-sonnet': 'Claude 3.5 Sonnet',
+  'claude-3-5-sonnet-20241022': 'Claude 3.5 Sonnet',
+  'claude-3-5-haiku': 'Claude 3.5 Haiku',
+  'claude-3-5-haiku-20241022': 'Claude 3.5 Haiku',
+  'claude-3-opus': 'Claude 3 Opus',
+  'claude-3-opus-20240229': 'Claude 3 Opus',
+  'claude-3-sonnet': 'Claude 3 Sonnet',
+  'claude-3-haiku': 'Claude 3 Haiku',
+  'claude-sonnet-4-20250514': 'Claude Sonnet 4',
+  'claude-opus-4-20250514': 'Claude Opus 4',
+  // Google models
+  'gemini-2.0-pro': 'Gemini 2.0 Pro',
+  'gemini-2.0-flash': 'Gemini 2.0 Flash',
+  'gemini-1.5-pro': 'Gemini 1.5 Pro',
+  'gemini-1.5-flash': 'Gemini 1.5 Flash',
+  'gemini-pro': 'Gemini Pro',
+  // xAI models
+  'grok-2': 'Grok 2',
+  'grok-3': 'Grok 3',
+  'grok-3-mini': 'Grok 3 Mini',
+  // Mistral models
+  'mistral-large': 'Mistral Large',
+  'mistral-medium': 'Mistral Medium',
+  'mistral-small': 'Mistral Small',
+  // Perplexity models
+  'sonar-pro': 'Sonar Pro',
+  'sonar': 'Sonar',
+  // DeepSeek models
+  'deepseek-chat': 'DeepSeek Chat',
+  'deepseek-reasoner': 'DeepSeek R1',
+};
+
+/**
  * Extract short model name from provider:model or provider/model format.
  * Examples:
  *   "openai:gpt-4.1" -> "gpt-4.1"
@@ -20,6 +69,15 @@ function getShortModelName(model) {
     return model.split('/')[1] || model;
   }
   return model;
+}
+
+/**
+ * Get a friendly display name for a model, suitable for tab labels.
+ * Falls back to the short model name if no friendly name is defined.
+ */
+function getDisplayName(model) {
+  const shortName = getShortModelName(model);
+  return MODEL_DISPLAY_NAMES[shortName] || shortName;
 }
 
 function deAnonymizeText(text, labelToModel) {
@@ -57,8 +115,9 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
             key={index}
             className={`tab ${activeTab === index ? 'active' : ''}`}
             onClick={() => setActiveTab(index)}
+            title={rank.model}
           >
-            {getShortModelName(rank.model)}
+            {getDisplayName(rank.model)}'s Ranking
           </button>
         ))}
       </div>
@@ -98,10 +157,10 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
           </p>
           <div className="aggregate-list">
             {aggregateRankings.map((agg, index) => (
-              <div key={index} className="aggregate-item">
+              <div key={index} className="aggregate-item" title={agg.model}>
                 <span className="rank-position">#{index + 1}</span>
                 <span className="rank-model">
-                  {getShortModelName(agg.model)}
+                  {getDisplayName(agg.model)}
                 </span>
                 <span className="rank-score">
                   Avg: {agg.average_rank.toFixed(2)}
