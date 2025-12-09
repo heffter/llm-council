@@ -109,10 +109,19 @@ async def health():
         "research": RESEARCH_MODEL if RESEARCH_MODEL else None
     }
 
+    # Storage configuration info
+    from .config import DATA_DIR
+    storage_config = {
+        "path": DATA_DIR,
+        "encrypted": False,
+        "description": "Conversations are stored as unencrypted JSON files on local disk."
+    }
+
     return {
         "status": "ok",
         "providers": providers,
-        "roles": roles
+        "roles": roles,
+        "storage": storage_config
     }
 
 
