@@ -1,0 +1,47 @@
+<context>
+# Overview
+LLM Council is a local web app that queries multiple LLMs, has them rank each other, and produces a synthesized answer. Backend: FastAPI (`backend/`). Frontend: React/Vite (`frontend/`). Storage: JSON files in `data/conversations/`. Start via `./start.sh` or backend `uv run python -m backend.main` + `npm run dev`. Existing gaps: no auth/rate limiting, OpenRouter-only provider, path handling on conversation IDs is unsafe, limited error surfacing, plaintext storage without warnings.
+
+# Core Features
+- Council orchestration (3 stages: collect responses, peer rank, synthesize). Needs to be provider-agnostic (OpenAI, Anthropic, OpenRouter) with per-role models.
+- Conversation storage in `data/conversations/` with safe IDs and traversal protection.
+- Backend API + SSE updates; frontend shows stage progress and results.
+- Developer guidance in `AGENTS.md`; Taskmaster workflow in `CLAUDE.md`.
+
+# User Experience
+- Primary persona: local developer evaluating LLM outputs side-by-side.
+- Flow: create conversation, send prompt, watch stage progress, review rankings and final answer.
+- UX needs: clear error surfacing when providers fail, warning that data is stored locally and unencrypted.
+</context>
+<PRD>
+# Technical Architecture
+- **Storage safety**: enforce UUID conversation IDs at API boundary; sanitize paths to stay under `data/conversations/` only. Add response-size caps/truncation before persistence.
+- **Auth & rate limiting**: optional shared token header on write endpoints (env-driven). Optional simple rate limit per token/IP; disabled by default.
+- **Provider abstraction**: replace OpenRouter-only client with provider router supporting at least OpenAI and Anthropic, plus OpenRouter. Model notation like `openai:gpt-4.1`/`anthropic:claude-3-5-sonnet`/`openrouter:...`. Env-driven config for council list + chairman model.
+- **Resilience & observability**: retries with backoff for upstream calls; shorter timeouts for title generation; structured logging; surface failures to frontend SSE `error` events.
+- **Frontend messaging**: show provider errors and a banner warning about local JSON storage; keep UI minimal, no redesign.
+- **Config docs**: update `.env.example`/README with new envs (token, rate limit toggle, provider keys).
+
+# Development Roadmap
+- **MVP hardening**: UUID validation and sanitized paths; optional shared token guard; provider router supporting OpenAI/Anthropic/OpenRouter; SSE error surfacing; doc updates; git-ignore verify for `data/`.
+- **Resilience pass**: retries/backoff, shorter timeouts for title generation, response-size caps, clearer logging.
+- **Future enhancements**: richer rate limiting, encryption-at-rest option, UI polish for error states, more providers (TogetherAI, Groq) as needed.
+
+# Logical Dependency Chain
+1) Storage safety (UUID + path sanitation) → prevents traversal risks.
+2) Auth guard + env plumbing → protects write endpoints before adding more provider calls.
+3) Provider router + config → unblock running with OpenAI/Anthropic instead of OpenRouter.
+4) Error surfacing & frontend banner → user awareness once failures/warnings are meaningful.
+5) Resilience (retries/timeouts/caps) → stabilize after core wiring is in place.
+
+# Risks and Mitigations
+- Missing/invalid API keys → explicit errors surfaced via SSE; fallback messaging.
+- Provider variability (latency/timeouts) → bounded timeouts + backoff + truncation.
+- Data sensitivity in `data/conversations/` → banner warning and docs; keep gitignore.
+- Over-scoping UI changes → keep banner minimal and reuse existing components.
+
+# Appendix
+- Coding conventions: 4-space Python, React hooks, refer to `AGENTS.md`.
+- Taskmaster usage: see `CLAUDE.md`; tasks live under `.taskmaster/tasks/`.
+- Current envs: `OPENROUTER_API_KEY` exists; will add `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, shared token/rate limit toggles in `.env.example`.
+</PRD>
