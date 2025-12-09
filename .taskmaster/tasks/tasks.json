@@ -85,13 +85,14 @@
           "4",
           "5"
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "in-progress",
+        "subtasks": [],
+        "updatedAt": "2025-12-09T16:45:03.102Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-09T16:10:17.466Z",
+      "lastModified": "2025-12-09T16:45:03.103Z",
       "taskCount": 6,
       "completedCount": 2,
       "tags": [
