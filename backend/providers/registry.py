@@ -43,7 +43,7 @@ class ProviderRegistry:
         Looks for API keys in env:
         - OPENAI_API_KEY
         - ANTHROPIC_API_KEY
-        - GEMINI_API_KEY (or GOOGLE_API_KEY)
+        - GOOGLE_API_KEY
         - PERPLEXITY_API_KEY
         - OPENROUTER_API_KEY
         """
@@ -63,8 +63,8 @@ class ProviderRegistry:
                 timeout_ms=120000
             )
 
-        # Gemini (accepts GEMINI_API_KEY or GOOGLE_API_KEY)
-        if gemini_key := (os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")):
+        # Gemini (uses GOOGLE_API_KEY for Gemini/Vertex access)
+        if gemini_key := os.getenv("GOOGLE_API_KEY"):
             self._configs['gemini'] = ProviderConfig(
                 api_key=gemini_key,
                 base_url=os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta"),
@@ -109,7 +109,7 @@ class ProviderRegistry:
         if config is None:
             raise ValueError(
                 f"Provider '{provider}' is not configured. "
-                f"Please set {provider.upper()}_API_KEY environment variable."
+                f"Please set {_env_var_for_provider(provider)} environment variable."
             )
 
         # Create new client based on provider type
@@ -143,6 +143,18 @@ class ProviderRegistry:
         """
         return provider in self._configs and self._configs[provider] is not None
 
+    def get_config(self, provider: str) -> Optional[ProviderConfig]:
+        """
+        Get configuration for a specific provider.
+
+        Args:
+            provider: Provider identifier
+
+        Returns:
+            ProviderConfig if configured, None otherwise
+        """
+        return self._configs.get(provider)
+
     def validate_model_id(self, model_id: str) -> None:
         """
         Validate that a provider:model string is configured.
@@ -157,7 +169,7 @@ class ProviderRegistry:
         if not self.is_provider_configured(parsed.provider):
             raise ValueError(
                 f"Provider '{parsed.provider}' from model '{model_id}' is not configured. "
-                f"Please set {parsed.provider.upper()}_API_KEY environment variable."
+                f"Please set {_env_var_for_provider(parsed.provider)} environment variable."
             )
 
 
@@ -172,3 +184,10 @@ def get_registry() -> ProviderRegistry:
         _registry = ProviderRegistry()
         _registry.register_from_env()
     return _registry
+
+
+def _env_var_for_provider(provider: ProviderId) -> str:
+    """Return the expected API key env var for a provider."""
+    if provider == 'gemini':
+        return "GOOGLE_API_KEY"
+    return f"{provider.upper()}_API_KEY"

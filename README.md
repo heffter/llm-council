@@ -56,7 +56,7 @@ ANTHROPIC_API_KEY=sk-ant-...
 # OR
 OPENAI_API_KEY=sk-proj-...
 # OR
-GEMINI_API_KEY=...
+GOOGLE_API_KEY=...
 # OR
 PERPLEXITY_API_KEY=pplx-...
 # OR
@@ -127,7 +127,7 @@ Each provider requires its corresponding API key:
 ```bash
 OPENAI_API_KEY=           # For OpenAI models
 ANTHROPIC_API_KEY=        # For Anthropic Claude models
-GEMINI_API_KEY=           # For Google Gemini models (or GOOGLE_API_KEY)
+GOOGLE_API_KEY=           # For Google Gemini models
 PERPLEXITY_API_KEY=       # For Perplexity models
 OPENROUTER_API_KEY=       # For OpenRouter proxy
 ```

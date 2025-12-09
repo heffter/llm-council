@@ -16,7 +16,7 @@ def parse_model_list(env_value: Optional[str]) -> List[str]:
         env_value: String like "openai:gpt-4.1,anthropic:claude-3-5-sonnet"
 
     Returns:
-        List of model IDs
+        List of model ID strings in provider:model format
     """
     if not env_value:
         return []
