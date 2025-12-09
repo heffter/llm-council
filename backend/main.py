@@ -14,6 +14,7 @@ from .council import run_full_council, generate_conversation_title, stage1_colle
 from .config import validate_config
 from .storage_utils import InvalidConversationIdError, PathTraversalError
 from .middleware import shared_secret_middleware, rate_limit_middleware
+from .logger import get_logger
 
 app = FastAPI(title="LLM Council API")
 
@@ -39,8 +40,10 @@ app.add_middleware(
 
 # Add authentication and rate limiting middleware
 # Order matters: rate_limit runs first, then shared_secret
-app.middleware("http")(rate_limit_middleware)
+# Note: FastAPI middleware wraps in reverse order, so add shared_secret first
+# to make rate_limit execute first (outermost)
 app.middleware("http")(shared_secret_middleware)
+app.middleware("http")(rate_limit_middleware)
 
 
 class CreateConversationRequest(BaseModel):
@@ -197,11 +200,16 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
-            # Wait for title generation if it was started
+            # Wait for title generation if it was started (non-critical, don't fail if it errors)
             if title_task:
-                title = await title_task
-                storage.update_conversation_title(conversation_id, title)
-                yield f"data: {json.dumps({'type': 'title_complete', 'data': {'title': title}})}\n\n"
+                try:
+                    title = await title_task
+                    storage.update_conversation_title(conversation_id, title)
+                    yield f"data: {json.dumps({'type': 'title_complete', 'data': {'title': title}})}\n\n"
+                except Exception as title_error:
+                    # Log but don't fail - title generation is non-critical
+                    logger = get_logger()
+                    logger.warn("Title generation failed", error=str(title_error), conversation_id=conversation_id)
 
             # Save complete assistant message
             storage.add_assistant_message(
