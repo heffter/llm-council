@@ -11,13 +11,9 @@ import asyncio
 
 from . import storage
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
-from .config import validate_config, COUNCIL_MODELS, CHAIRMAN_MODEL, RESEARCH_MODEL
+from .config import validate_config
 from .storage_utils import InvalidConversationIdError, PathTraversalError
 from .middleware import shared_secret_middleware, rate_limit_middleware
-from .providers import get_registry
-from .logger import get_logger
-
-logger = get_logger()
 
 app = FastAPI(title="LLM Council API")
 
@@ -77,52 +73,6 @@ class Conversation(BaseModel):
 async def root():
     """Health check endpoint."""
     return {"status": "ok", "service": "LLM Council API"}
-
-
-@app.get("/health")
-async def health():
-    """
-    Health and configuration endpoint.
-
-    Returns system status and enabled provider information (no secrets).
-    Can be disabled by setting EXPOSE_HEALTH_ENDPOINT=false.
-    """
-    import os
-
-    # Check if endpoint is enabled
-    if os.getenv("EXPOSE_HEALTH_ENDPOINT", "true").lower() != "true":
-        raise HTTPException(status_code=404, detail="Endpoint not found")
-
-    registry = get_registry()
-
-    # Build provider status
-    providers = {}
-    for provider_id in ['openai', 'anthropic', 'gemini', 'perplexity', 'openrouter']:
-        providers[provider_id] = {
-            "enabled": registry.is_provider_configured(provider_id)
-        }
-
-    # Build role configuration (without secrets)
-    roles = {
-        "council": COUNCIL_MODELS,
-        "chairman": CHAIRMAN_MODEL,
-        "research": RESEARCH_MODEL if RESEARCH_MODEL else None
-    }
-
-    # Storage configuration info
-    from .config import DATA_DIR
-    storage_config = {
-        "path": DATA_DIR,
-        "encrypted": False,
-        "description": "Conversations are stored as unencrypted JSON files on local disk."
-    }
-
-    return {
-        "status": "ok",
-        "providers": providers,
-        "roles": roles,
-        "storage": storage_config
-    }
 
 
 @app.get("/api/conversations", response_model=List[ConversationMetadata])
@@ -233,44 +183,25 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
 
             # Stage 1: Collect responses
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
-            try:
-                stage1_results = await stage1_collect_responses(request.content)
-                yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
-            except Exception as e:
-                logger.error("Stage 1 failed", error=str(e), conversation_id=conversation_id)
-                yield f"data: {json.dumps({{'type': 'error', 'stage': 'stage1', 'message': str(e), 'retryable': True}})}\n\n"
-                return
+            stage1_results = await stage1_collect_responses(request.content)
+            yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
             # Stage 2: Collect rankings
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            try:
-                stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results)
-                aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
-                yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
-            except Exception as e:
-                logger.error("Stage 2 failed", error=str(e), conversation_id=conversation_id)
-                yield f"data: {json.dumps({{'type': 'error', 'stage': 'stage2', 'message': str(e), 'retryable': True}})}\n\n"
-                return
+            stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results)
+            aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
+            yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
 
             # Stage 3: Synthesize final answer
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            try:
-                stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
-                yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
-            except Exception as e:
-                logger.error("Stage 3 failed", error=str(e), conversation_id=conversation_id)
-                yield f"data: {json.dumps({{'type': 'error', 'stage': 'stage3', 'message': str(e), 'retryable': True}})}\n\n"
-                return
+            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
+            yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
-            # Wait for title generation if it was started (non-critical, catch errors)
+            # Wait for title generation if it was started
             if title_task:
-                try:
-                    title = await title_task
-                    storage.update_conversation_title(conversation_id, title)
-                    yield f"data: {json.dumps({'type': 'title_complete', 'data': {'title': title}})}\n\n"
-                except Exception as e:
-                    logger.warn("Title generation failed (non-critical)", error=str(e), conversation_id=conversation_id)
-                    # Don't send error event for title failures - it's non-critical
+                title = await title_task
+                storage.update_conversation_title(conversation_id, title)
+                yield f"data: {json.dumps({'type': 'title_complete', 'data': {'title': title}})}\n\n"
 
             # Save complete assistant message
             storage.add_assistant_message(
@@ -284,9 +215,8 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             yield f"data: {json.dumps({'type': 'complete'})}\n\n"
 
         except Exception as e:
-            # Catch-all for unexpected errors
-            logger.error("Unexpected error in SSE stream", error=str(e), conversation_id=conversation_id)
-            yield f"data: {json.dumps({{'type': 'error', 'message': str(e), 'retryable': False}})}\n\n"
+            # Send error event
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
     return StreamingResponse(
         event_generator(),

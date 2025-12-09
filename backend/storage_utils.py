@@ -33,7 +33,7 @@ def validate_conversation_id(conversation_id: str) -> None:
     """
     try:
         uuid_obj = UUID(conversation_id)
-        # Verify it's actually version 4 (not just any UUID)
+        # Verify it's actually UUID v4 (not v1, v3, or v5)
         if uuid_obj.version != 4:
             raise InvalidConversationIdError(
                 f"conversation_id must be a valid UUID v4, got version {uuid_obj.version}: {conversation_id}"
