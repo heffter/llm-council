@@ -275,8 +275,9 @@ Title:"""
     messages = [{"role": "user", "content": title_prompt}]
 
     # Use research model for title generation if configured, otherwise use first council model
+    # Use shorter timeout (5s) for title generation - non-critical operation
     title_model = RESEARCH_MODEL if RESEARCH_MODEL else COUNCIL_MODELS[0]
-    response = await query_model(title_model, messages, timeout=30.0)
+    response = await query_model(title_model, messages, timeout=5.0)
 
     if response is None:
         # Fallback to a generic title

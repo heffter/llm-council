@@ -2,6 +2,10 @@
 
 from typing import List, Dict, Any, Optional
 from .providers import parse_provider_model, get_registry, Message, CompletionRequest
+from .retry import with_retries
+from .logger import get_logger
+
+logger = get_logger()
 
 
 async def query_model(
@@ -10,7 +14,7 @@ async def query_model(
     timeout: float = 120.0
 ) -> Optional[Dict[str, Any]]:
     """
-    Query a single model using provider:model notation.
+    Query a single model using provider:model notation with retries.
 
     Args:
         model_id: Model identifier in format "provider:model" (e.g., "openai:gpt-4.1")
@@ -38,8 +42,15 @@ async def query_model(
             timeout=timeout
         )
 
-        # Execute request
-        response = await client.complete(request)
+        logger.info("LLM request start", provider=parsed.provider, model=parsed.model, timeout=timeout)
+
+        # Execute request with retries
+        async def make_request():
+            return await client.complete(request)
+
+        response = await with_retries(make_request, retries=2, base_delay_ms=1000)
+
+        logger.info("LLM request complete", provider=parsed.provider, model=parsed.model)
 
         return {
             'content': response.content,
@@ -47,7 +58,8 @@ async def query_model(
         }
 
     except Exception as e:
-        print(f"Error querying model {model_id}: {e}")
+        logger.error("LLM request failed", provider=parsed.provider if 'parsed' in locals() else 'unknown',
+                    model=model_id, error=str(e))
         return None
 
 
