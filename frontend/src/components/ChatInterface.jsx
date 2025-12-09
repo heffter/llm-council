@@ -5,13 +5,20 @@ import Stage2 from './Stage2';
 import Stage3 from './Stage3';
 import './ChatInterface.css';
 
+// Allowed file extensions for upload
+const ALLOWED_EXTENSIONS = ['.md', '.txt', '.json', '.js', '.jsx', '.ts', '.tsx', '.py', '.html', '.css', '.yaml', '.yml', '.xml', '.csv'];
+const MAX_FILE_SIZE = 1024 * 1024; // 1MB
+
 export default function ChatInterface({
   conversation,
   onSendMessage,
   isLoading,
 }) {
   const [input, setInput] = useState('');
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [fileError, setFileError] = useState(null);
   const messagesEndRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -21,11 +28,71 @@ export default function ChatInterface({
     scrollToBottom();
   }, [conversation]);
 
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    setFileError(null);
+
+    if (!file) {
+      setUploadedFile(null);
+      return;
+    }
+
+    // Validate file extension
+    const ext = '.' + file.name.split('.').pop().toLowerCase();
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      setFileError(`Invalid file type. Allowed: ${ALLOWED_EXTENSIONS.join(', ')}`);
+      setUploadedFile(null);
+      e.target.value = '';
+      return;
+    }
+
+    // Validate file size
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError(`File too large. Maximum size: ${MAX_FILE_SIZE / 1024}KB`);
+      setUploadedFile(null);
+      e.target.value = '';
+      return;
+    }
+
+    // Read file content
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setUploadedFile({
+        name: file.name,
+        content: event.target.result,
+      });
+    };
+    reader.onerror = () => {
+      setFileError('Failed to read file');
+      setUploadedFile(null);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleRemoveFile = () => {
+    setUploadedFile(null);
+    setFileError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (input.trim() && !isLoading) {
-      onSendMessage(input);
+    if ((input.trim() || uploadedFile) && !isLoading) {
+      // Combine user input with file content if present
+      let messageContent = input.trim();
+      if (uploadedFile) {
+        const fileSection = `\n\n---\n**Attached File: ${uploadedFile.name}**\n\`\`\`\n${uploadedFile.content}\n\`\`\``;
+        messageContent = messageContent ? messageContent + fileSection : `Please analyze this file:\n${fileSection}`;
+      }
+      onSendMessage(messageContent);
       setInput('');
+      setUploadedFile(null);
+      setFileError(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 

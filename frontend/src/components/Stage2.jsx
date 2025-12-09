@@ -2,13 +2,33 @@ import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import './Stage2.css';
 
+/**
+ * Extract short model name from provider:model or provider/model format.
+ * Examples:
+ *   "openai:gpt-4.1" -> "gpt-4.1"
+ *   "anthropic:claude-3-5-sonnet" -> "claude-3-5-sonnet"
+ *   "openrouter/some-model" -> "some-model"
+ *   "plain-model-name" -> "plain-model-name"
+ */
+function getShortModelName(model) {
+  if (!model) return model;
+  // Try colon first (new provider:model format), then slash (legacy format)
+  if (model.includes(':')) {
+    return model.split(':')[1] || model;
+  }
+  if (model.includes('/')) {
+    return model.split('/')[1] || model;
+  }
+  return model;
+}
+
 function deAnonymizeText(text, labelToModel) {
   if (!labelToModel) return text;
 
   let result = text;
   // Replace each "Response X" with the actual model name
   Object.entries(labelToModel).forEach(([label, model]) => {
-    const modelShortName = model.split('/')[1] || model;
+    const modelShortName = getShortModelName(model);
     result = result.replace(new RegExp(label, 'g'), `**${modelShortName}**`);
   });
   return result;
@@ -38,7 +58,7 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
             className={`tab ${activeTab === index ? 'active' : ''}`}
             onClick={() => setActiveTab(index)}
           >
-            {rank.model.split('/')[1] || rank.model}
+            {getShortModelName(rank.model)}
           </button>
         ))}
       </div>
@@ -61,7 +81,7 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
               {rankings[activeTab].parsed_ranking.map((label, i) => (
                 <li key={i}>
                   {labelToModel && labelToModel[label]
-                    ? labelToModel[label].split('/')[1] || labelToModel[label]
+                    ? getShortModelName(labelToModel[label])
                     : label}
                 </li>
               ))}
@@ -81,7 +101,7 @@ export default function Stage2({ rankings, labelToModel, aggregateRankings }) {
               <div key={index} className="aggregate-item">
                 <span className="rank-position">#{index + 1}</span>
                 <span className="rank-model">
-                  {agg.model.split('/')[1] || agg.model}
+                  {getShortModelName(agg.model)}
                 </span>
                 <span className="rank-score">
                   Avg: {agg.average_rank.toFixed(2)}
