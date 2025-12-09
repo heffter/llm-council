@@ -39,6 +39,8 @@ class OpenRouterProvider(LLMProviderClient):
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/llm-council",
+            "X-Title": "LLM Council",
         }
 
         payload = {
