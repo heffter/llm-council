@@ -15,8 +15,12 @@ from .config import validate_config, CONVERSATION_CONTEXT_STRATEGY, MAX_CONTEXT_
 from .storage_utils import InvalidConversationIdError, PathTraversalError
 from .middleware import shared_secret_middleware, rate_limit_middleware
 from .logger import get_logger
+from .routes.config import router as config_router
 
 app = FastAPI(title="LLM Council API")
+
+# Register routers
+app.include_router(config_router)
 
 
 @app.on_event("startup")
