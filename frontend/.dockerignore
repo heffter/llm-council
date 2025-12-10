@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+
+# Build output (we build inside container)
+dist/
+build/
+
+# Vite cache
+.vite/
+
+# Environment files
+.env
+.env.*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git
+.gitignore
+
+# Documentation (keep README for reference)
+*.md
+!README.md
+
+# Misc
+*.bak
+*.tmp

@@ -118,6 +118,26 @@ npm run dev
 
 Then open http://localhost:5173 in your browser.
 
+**Option 3: Docker Compose (Recommended for deployment)**
+
+```bash
+# Build and start all services
+docker-compose up --build
+
+# Or run in detached mode
+docker-compose up -d --build
+
+# View logs
+docker-compose logs -f
+
+# Stop services
+docker-compose down
+```
+
+Then open http://localhost in your browser (port 80).
+
+See [Docker Deployment](#docker-deployment) for detailed configuration.
+
 ## Configuration Reference
 
 ### Provider Configuration
@@ -308,6 +328,125 @@ npm run lint
 - Conversation IDs must be valid UUID v4
 - Check disk space in `data/conversations/`
 - Verify `data/` is writable
+
+## Docker Deployment
+
+The project includes Docker support for easy deployment.
+
+### Quick Start
+
+```bash
+# 1. Create/update .env with your API keys
+cp .env.example .env
+# Edit .env with your API keys
+
+# 2. Build and run
+docker-compose up --build -d
+
+# 3. Check services are healthy
+docker-compose ps
+
+# 4. View logs
+docker-compose logs -f backend
+```
+
+### Services
+
+| Service | Port | Description |
+|---------|------|-------------|
+| `backend` | 8001 | FastAPI Python backend |
+| `frontend` | 80 | React app served by nginx |
+| `redis` | 6379 | Optional: distributed rate limiting |
+
+### Environment Variables
+
+All configuration is passed via environment variables. Create a `.env` file:
+
+```bash
+# Required: At least one provider API key
+OPENROUTER_API_KEY=sk-or-v1-...
+
+# Model configuration
+COUNCIL_MODELS=openrouter:anthropic/claude-3-5-sonnet,openrouter:openai/gpt-4o
+CHAIRMAN_MODEL=openrouter:anthropic/claude-3-5-sonnet
+
+# Optional: Production settings
+SHARED_WRITE_TOKEN=your-secret-token
+RATE_LIMIT_ENABLED=true
+RATE_LIMIT_MAX_REQUESTS=100
+```
+
+### Data Persistence
+
+Conversations are stored in `./data/conversations/` which is mounted as a Docker volume:
+
+```yaml
+volumes:
+  - ./data:/app/data
+```
+
+To backup conversations, copy the `data/` directory. To reset, delete it.
+
+### Building Individual Images
+
+```bash
+# Backend only
+docker build -f backend/Dockerfile -t llm-council-backend .
+
+# Frontend only (with custom API URL)
+docker build -f frontend/Dockerfile \
+  --build-arg VITE_API_BASE=https://api.example.com \
+  -t llm-council-frontend ./frontend
+```
+
+### Production Considerations
+
+1. **HTTPS:** Use a reverse proxy (nginx, Traefik, Cloudflare) for TLS termination
+2. **Authentication:** Set `SHARED_WRITE_TOKEN` for write endpoint protection
+3. **Rate Limiting:** Enable with `RATE_LIMIT_ENABLED=true`
+4. **Redis:** Uncomment Redis service in `docker-compose.yml` for distributed rate limiting
+5. **Secrets:** Use Docker secrets or a secrets manager instead of `.env` in production
+
+### Health Checks
+
+Both services include health checks:
+
+- Backend: `curl http://localhost:8001/health`
+- Frontend: `wget http://localhost:80/`
+
+Check health status:
+```bash
+docker-compose ps
+# Or
+docker inspect llm-council-backend --format='{{.State.Health.Status}}'
+```
+
+### Troubleshooting Docker
+
+**Container won't start:**
+```bash
+# Check logs
+docker-compose logs backend
+
+# Common issues:
+# - Missing API keys in .env
+# - Invalid COUNCIL_MODELS format
+```
+
+**Frontend can't reach backend:**
+```bash
+# Ensure backend is healthy first
+docker-compose ps
+
+# Check network connectivity
+docker-compose exec frontend wget -O- http://backend:8001/health
+```
+
+**Permission errors on data volume:**
+```bash
+# Fix ownership
+sudo chown -R 1000:1000 ./data
+```
 
 ## License
 
