@@ -128,12 +128,13 @@
         "description": "Enable the council pipeline to reuse previous user questions and chairman replies so follow-up queries receive context-aware answers when sent via the backend messaging APIs.",
         "details": "• Extend `run_full_council` to accept `conversation_history: List[Dict[str, Any]]`, and build a context message list from prior user prompts and Stage 3 responses according to a new `CONVERSATION_CONTEXT_STRATEGY` env option (default to “chairman-and-users”).\n• Teach `stage1_collect_responses` and `stage3_synthesize_final` to accept this message history and prepend it when calling LLM providers, ensuring Stage 1 and Stage 3 both see the same contextual transcript.\n• Update `backend/main.py`’s `send_message` and `send_message_stream` to read prior exchanges from storage, honor the strategy setting, and pass the assembled list into `run_full_council` so SSE and non-stream calls share logic.\n• Document supported strategies (e.g., `users_and_chairman`, `all_messages`) and ensure the strategy can be toggled without restart via refreshed env/config handling.\n• Guard costs by limiting history length and filtering only the roles dictated by the chosen strategy; add inline comments describing any truncation heuristics.",
         "testStrategy": "• Unit tests for a helper that builds the context list, covering both strategy modes and ensuring chairman responses are captured after Stage 3 emits them.\n• Integration tests for `send_message`/`send_message_stream` mocking stored histories to verify `run_full_council` receives the correct message arrays.\n• Functional test (or manual run) sending a follow-up query to confirm Stage 1 and Stage 3 outputs reference earlier conversation state and that strategy toggles alter the prompt content.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "2"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2025-12-10T08:01:26.855Z"
       },
       {
         "id": "8",
@@ -231,9 +232,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-10T07:28:37.267Z",
+      "lastModified": "2025-12-10T08:01:26.856Z",
       "taskCount": 14,
-      "completedCount": 7,
+      "completedCount": 8,
       "tags": [
         "master"
       ]

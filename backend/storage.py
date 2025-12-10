@@ -242,3 +242,92 @@ def update_conversation_title(conversation_id: str, title: str):
 
     conversation["title"] = title
     save_conversation(conversation)
+
+
+def build_conversation_history(
+    conversation_id: str,
+    strategy: str = "chairman_only",
+    max_exchanges: int = 5
+) -> List[Dict[str, str]]:
+    """
+    Build a list of messages representing conversation history for LLM context.
+
+    The history is formatted as alternating user/assistant messages that can be
+    prepended to new queries to provide conversation context.
+
+    Args:
+        conversation_id: Conversation identifier
+        strategy: How to extract assistant responses:
+            - "chairman_only": Use only stage3 (chairman) response (cost-efficient)
+            - "full": Include all stage1 responses summarized (comprehensive)
+            - "none": Return empty list (no history)
+        max_exchanges: Maximum number of user-assistant exchanges to include
+
+    Returns:
+        List of message dicts with 'role' and 'content' keys, ordered chronologically.
+        Returns empty list if conversation not found or strategy is "none".
+    """
+    if strategy == "none":
+        return []
+
+    conversation = get_conversation(conversation_id)
+    if conversation is None:
+        return []
+
+    messages = conversation.get("messages", [])
+    if not messages:
+        return []
+
+    # Build pairs of (user_message, assistant_message)
+    history = []
+    i = 0
+    while i < len(messages):
+        msg = messages[i]
+
+        if msg.get("role") == "user":
+            user_content = msg.get("content", "")
+
+            # Look for the next assistant message
+            if i + 1 < len(messages) and messages[i + 1].get("role") == "assistant":
+                assistant_msg = messages[i + 1]
+
+                if strategy == "chairman_only":
+                    # Extract only the chairman's final response (stage3)
+                    stage3 = assistant_msg.get("stage3", {})
+                    assistant_content = stage3.get("response", "")
+                elif strategy == "full":
+                    # Build a summary including all stage1 responses
+                    stage1 = assistant_msg.get("stage1", [])
+                    stage3 = assistant_msg.get("stage3", {})
+
+                    # Summarize stage1 responses
+                    stage1_summary = "\n\n".join([
+                        f"**{r.get('model', 'Unknown')}**: {r.get('response', '')[:500]}..."
+                        if len(r.get('response', '')) > 500
+                        else f"**{r.get('model', 'Unknown')}**: {r.get('response', '')}"
+                        for r in stage1
+                    ])
+
+                    chairman_response = stage3.get("response", "")
+
+                    assistant_content = f"Council Responses:\n{stage1_summary}\n\nFinal Answer:\n{chairman_response}"
+                else:
+                    assistant_content = ""
+
+                if user_content and assistant_content:
+                    history.append({"role": "user", "content": user_content})
+                    history.append({"role": "assistant", "content": assistant_content})
+
+                i += 2  # Skip both user and assistant messages
+            else:
+                i += 1  # No assistant response yet, skip just the user message
+        else:
+            i += 1  # Skip orphaned assistant messages
+
+    # Limit to max_exchanges (each exchange = 2 messages)
+    max_messages = max_exchanges * 2
+    if len(history) > max_messages:
+        # Keep only the most recent exchanges
+        history = history[-max_messages:]
+
+    return history

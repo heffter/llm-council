@@ -11,7 +11,7 @@ import asyncio
 
 from . import storage
 from .council import run_full_council, generate_conversation_title, stage1_collect_responses, stage2_collect_rankings, stage3_synthesize_final, calculate_aggregate_rankings
-from .config import validate_config
+from .config import validate_config, CONVERSATION_CONTEXT_STRATEGY, MAX_CONTEXT_EXCHANGES
 from .storage_utils import InvalidConversationIdError, PathTraversalError
 from .middleware import shared_secret_middleware, rate_limit_middleware
 from .logger import get_logger
@@ -111,6 +111,11 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     """
     Send a message and run the 3-stage council process.
     Returns the complete response with all stages.
+
+    Conversation history is automatically included based on CONVERSATION_CONTEXT_STRATEGY:
+    - "chairman_only": Include user messages and chairman's final responses (default)
+    - "full": Include all stage 1 responses summarized
+    - "none": No history, each query is independent
     """
     try:
         # Check if conversation exists
@@ -125,6 +130,13 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     # Check if this is the first message
     is_first_message = len(conversation["messages"]) == 0
 
+    # Build conversation history for context (before adding new message)
+    conversation_history = storage.build_conversation_history(
+        conversation_id,
+        strategy=CONVERSATION_CONTEXT_STRATEGY,
+        max_exchanges=MAX_CONTEXT_EXCHANGES
+    )
+
     # Add user message
     storage.add_user_message(conversation_id, request.content)
 
@@ -133,9 +145,10 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
         title = await generate_conversation_title(request.content)
         storage.update_conversation_title(conversation_id, title)
 
-    # Run the 3-stage council process
+    # Run the 3-stage council process with conversation history
     stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
-        request.content
+        request.content,
+        conversation_history=conversation_history
     )
 
     # Add assistant message with all stages
@@ -160,6 +173,11 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
     """
     Send a message and stream the 3-stage council process.
     Returns Server-Sent Events as each stage completes.
+
+    Conversation history is automatically included based on CONVERSATION_CONTEXT_STRATEGY:
+    - "chairman_only": Include user messages and chairman's final responses (default)
+    - "full": Include all stage 1 responses summarized
+    - "none": No history, each query is independent
     """
     try:
         # Check if conversation exists
@@ -174,6 +192,13 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
     # Check if this is the first message
     is_first_message = len(conversation["messages"]) == 0
 
+    # Build conversation history for context (before adding new message)
+    conversation_history = storage.build_conversation_history(
+        conversation_id,
+        strategy=CONVERSATION_CONTEXT_STRATEGY,
+        max_exchanges=MAX_CONTEXT_EXCHANGES
+    )
+
     async def event_generator():
         try:
             # Add user message
@@ -184,20 +209,20 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             if is_first_message:
                 title_task = asyncio.create_task(generate_conversation_title(request.content))
 
-            # Stage 1: Collect responses
+            # Stage 1: Collect responses (with conversation history)
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
-            stage1_results = await stage1_collect_responses(request.content)
+            stage1_results = await stage1_collect_responses(request.content, conversation_history)
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
-            # Stage 2: Collect rankings
+            # Stage 2: Collect rankings (no history needed - rankings are about current responses)
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
             stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results)
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
             yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
 
-            # Stage 3: Synthesize final answer
+            # Stage 3: Synthesize final answer (with conversation history)
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results)
+            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results, conversation_history)
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
             # Wait for title generation if it was started (non-critical, don't fail if it errors)

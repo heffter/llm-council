@@ -39,6 +39,18 @@ RESEARCH_MODEL = os.getenv("RESEARCH_MODEL", "")
 # Data directory for conversation storage
 DATA_DIR = "data/conversations"
 
+# Conversation context strategy for follow-up messages
+# Options:
+#   - "chairman_only": Include only user messages and chairman's final responses (cost-efficient)
+#   - "full": Include all stage 1 responses (comprehensive but expensive)
+#   - "none": No history, each query is independent (default for backwards compatibility)
+CONVERSATION_CONTEXT_STRATEGY = os.getenv("CONVERSATION_CONTEXT_STRATEGY", "chairman_only")
+
+# Maximum number of previous exchanges to include in context
+# Each exchange = 1 user message + 1 assistant response
+# Higher values = more context but higher token costs
+MAX_CONTEXT_EXCHANGES = int(os.getenv("MAX_CONTEXT_EXCHANGES", "5"))
+
 
 def validate_config() -> None:
     """
