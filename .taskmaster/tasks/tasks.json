@@ -142,13 +142,89 @@
         "description": "Implement server endpoints, registry metadata, and frontend UI to let users inspect available models, choose presets, and store per-conversation model overrides without restarts.",
         "details": "1. Extend the backend model registry to annotate each model with display name, provider, estimated cost tier (low/medium/high), and speed tier; define preset bundles (Fast/Balanced/Comprehensive) that map to existing council/chairman/research roles.\n2. Add REST endpoints: `GET /api/config/models` returning all models grouped by provider with metadata; `GET /api/config/providers` listing providers and whether they are enabled; `GET /api/config/current` exposing the currently active council/chairman/research models and preset if applicable; update `POST /api/conversations` to accept an optional `models` payload (preset or explicit selection) and persist it in conversation metadata for downstream attribution.\n3. Update the council execution pipeline to read the stored conversation model overrides (falling back to global defaults) before invoking providers so chair/council/research stages honor per-conversation choices.\n4. Build a frontend settings/conversation-creation UI that fetches the config endpoints, shows models grouped by provider, displays cost/speed badges, offers preset shortcuts, and allows advanced users to customize each stage’s model; ensure selections are submitted with the conversation creation request and surfaced in conversation details for later reference.",
         "testStrategy": "• Backend unit tests for the model registry helpers (metadata enrichment, preset resolution) and the new config endpoints, verifying schema and access control.\n• Integration tests for `POST /api/conversations` showing custom model payloads are validated, stored, and later used when invoking the council pipeline.\n• Frontend component tests for the selector UI to confirm grouping, badge rendering, preset selection, and form submission payloads.\n• End-to-end test (or manual QA script) that creates a conversation with a preset override, inspects stored metadata, and confirms subsequent responses cite the chosen models.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "4",
           "7"
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Augment backend model registry with metadata and presets",
+            "description": "Extend the registry schema so every model includes display name, provider, cost tier, and speed tier plus define Fast/Balanced/Comprehensive preset bundles aligned to council/chairman/research roles.",
+            "dependencies": [],
+            "details": "Identify the registry module, add metadata fields to the model descriptors, document allowed tier enums, and implement helper functions to resolve presets into concrete per-role selections.",
+            "status": "done",
+            "testStrategy": "Unit tests for metadata helpers and preset resolution logic.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-10T08:16:10.997Z"
+          },
+          {
+            "id": 2,
+            "title": "Expose model and provider listing endpoints",
+            "description": "Create GET /api/config/models and GET /api/config/providers endpoints that pull from the enriched registry, grouping models by provider and indicating provider enablement flags.",
+            "dependencies": [
+              1
+            ],
+            "details": "Implement serializer utilities that structure grouped responses, ensure provider availability is derived from configuration, and enforce existing auth/access controls on these endpoints.",
+            "status": "done",
+            "testStrategy": "API tests verifying JSON schema, grouping correctness, and disabled provider behavior.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-10T09:44:20.814Z"
+          },
+          {
+            "id": 3,
+            "title": "Report current configuration and accept overrides on conversation creation",
+            "description": "Add GET /api/config/current to expose active council/chairman/research models and active preset, and update POST /api/conversations to accept optional preset or explicit models payload, validate it, and persist to conversation metadata.",
+            "dependencies": [
+              1,
+              2
+            ],
+            "details": "Design a validation schema for incoming overrides, reuse preset helpers, store selections alongside the conversation record, and ensure audit logging/error responses mirror existing style.",
+            "status": "pending",
+            "testStrategy": "API tests covering successful preset use, explicit per-role selection, invalid payload rejection, and persistence inspection.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 4,
+            "title": "Honor stored model overrides in council execution pipeline",
+            "description": "Update the council/chair/research invocation flow to read any conversation-level overrides before calling providers, falling back to global defaults when none exist.",
+            "dependencies": [
+              3
+            ],
+            "details": "Modify the pipeline entry points to fetch metadata, propagate chosen models into each stage, and add safeguards when requested models are unavailable at runtime.",
+            "status": "pending",
+            "testStrategy": "Integration tests stubbing the pipeline to confirm overrides are applied and defaults remain when metadata is absent.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 5,
+            "title": "Implement frontend config data hooks and state",
+            "description": "Create frontend services/hooks to fetch config endpoints, normalize provider-grouped models, expose presets, and maintain per-stage selections during conversation setup.",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Add API client methods, caching/refresh logic, and a context or store representing current preset, cost/speed labels, and advanced per-stage selections ready for UI consumption.",
+            "status": "pending",
+            "testStrategy": "Frontend unit tests ensuring hooks fetch once, map data correctly, and update state when users toggle presets or custom models.",
+            "parentId": "undefined"
+          },
+          {
+            "id": 6,
+            "title": "Build conversation creation UI for model selection and display overrides",
+            "description": "Update the conversation creation flow/UI to show provider-grouped models with cost/speed badges, offer preset shortcuts, allow advanced per-stage customization, submit selections with POST /api/conversations, and surface chosen models in conversation detail views.",
+            "dependencies": [
+              5
+            ],
+            "details": "Design responsive components, wire form submission to include the models payload, add visual confirmation badges in conversation headers/details, and ensure fallback display when defaults are used.",
+            "status": "pending",
+            "testStrategy": "Frontend integration tests verifying UI renders model metadata, forms submit correct payloads, and conversation detail pages show persisted selections.",
+            "parentId": "undefined"
+          }
+        ],
+        "updatedAt": "2025-12-10T09:44:20.814Z"
       },
       {
         "id": "9",
@@ -232,7 +308,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-10T08:01:26.856Z",
+      "lastModified": "2025-12-10T09:44:20.816Z",
       "taskCount": 14,
       "completedCount": 8,
       "tags": [

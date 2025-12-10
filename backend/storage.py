@@ -41,12 +41,20 @@ def get_conversation_path(conversation_id: str) -> str:
     return get_safe_conversation_path(conversation_id, DATA_DIR)
 
 
-def create_conversation(conversation_id: str) -> Dict[str, Any]:
+def create_conversation(
+    conversation_id: str,
+    model_config: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
     """
     Create a new conversation.
 
     Args:
         conversation_id: UUID v4 identifier for the conversation
+        model_config: Optional model configuration override with keys:
+            - preset: Name of preset to use (fast, balanced, comprehensive)
+            - council_models: List of provider:model strings for council
+            - chairman_model: provider:model string for chairman
+            - research_model: provider:model string for research (optional)
 
     Returns:
         New conversation dict
@@ -64,6 +72,10 @@ def create_conversation(conversation_id: str) -> Dict[str, Any]:
         "title": "New Conversation",
         "messages": []
     }
+
+    # Store model config if provided
+    if model_config:
+        conversation["model_config"] = model_config
 
     # Save to file
     path = get_conversation_path(conversation_id)

@@ -3,8 +3,8 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import List, Dict, Any
+from pydantic import BaseModel, field_validator
+from typing import List, Dict, Any, Optional
 import uuid
 import json
 import asyncio
@@ -16,6 +16,7 @@ from .storage_utils import InvalidConversationIdError, PathTraversalError
 from .middleware import shared_secret_middleware, rate_limit_middleware
 from .logger import get_logger
 from .routes.config import router as config_router
+from .providers import get_preset, get_model_info, parse_provider_model
 
 app = FastAPI(title="LLM Council API")
 
@@ -50,9 +51,27 @@ app.middleware("http")(shared_secret_middleware)
 app.middleware("http")(rate_limit_middleware)
 
 
+class ModelConfigRequest(BaseModel):
+    """Model configuration for a conversation."""
+    preset: Optional[str] = None  # "fast", "balanced", "comprehensive"
+    council_models: Optional[List[str]] = None
+    chairman_model: Optional[str] = None
+    research_model: Optional[str] = None
+
+    @field_validator('preset')
+    @classmethod
+    def validate_preset(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            valid_presets = ['fast', 'balanced', 'comprehensive']
+            if v.lower() not in valid_presets:
+                raise ValueError(f"Invalid preset: {v}. Must be one of: {', '.join(valid_presets)}")
+            return v.lower()
+        return v
+
+
 class CreateConversationRequest(BaseModel):
     """Request to create a new conversation."""
-    pass
+    model_config_data: Optional[ModelConfigRequest] = None
 
 
 class SendMessageRequest(BaseModel):
@@ -74,6 +93,7 @@ class Conversation(BaseModel):
     created_at: str
     title: str
     messages: List[Dict[str, Any]]
+    model_config_data: Optional[Dict[str, Any]] = None
 
 
 @app.get("/")
@@ -88,12 +108,92 @@ async def list_conversations():
     return storage.list_conversations()
 
 
+def validate_model_id(model_id: str) -> None:
+    """
+    Validate a provider:model string.
+
+    Raises HTTPException if invalid.
+    """
+    try:
+        parsed = parse_provider_model(model_id)
+        # Model exists in catalog or is a valid custom model
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid model ID: {model_id}. {str(e)}")
+
+
+def resolve_model_config(config: Optional[ModelConfigRequest]) -> Optional[Dict[str, Any]]:
+    """
+    Resolve and validate model configuration.
+
+    If a preset is specified, resolve it to concrete model IDs.
+    If explicit models are specified, validate them.
+
+    Returns dict suitable for storage or None if no config.
+    """
+    if config is None:
+        return None
+
+    result: Dict[str, Any] = {}
+
+    # If preset is specified, use it as the base
+    if config.preset:
+        preset = get_preset(config.preset)
+        if preset is None:
+            raise HTTPException(status_code=400, detail=f"Unknown preset: {config.preset}")
+
+        result = {
+            "preset": config.preset,
+            "council_models": preset.council_models,
+            "chairman_model": preset.chairman_model,
+            "research_model": preset.research_model
+        }
+
+    # Explicit model overrides take precedence over preset
+    if config.council_models:
+        for model_id in config.council_models:
+            validate_model_id(model_id)
+        result["council_models"] = config.council_models
+
+    if config.chairman_model:
+        validate_model_id(config.chairman_model)
+        result["chairman_model"] = config.chairman_model
+
+    if config.research_model:
+        validate_model_id(config.research_model)
+        result["research_model"] = config.research_model
+
+    return result if result else None
+
+
 @app.post("/api/conversations", response_model=Conversation)
 async def create_conversation(request: CreateConversationRequest):
-    """Create a new conversation."""
+    """
+    Create a new conversation.
+
+    Optionally accepts model configuration:
+    - preset: Use a predefined model configuration (fast, balanced, comprehensive)
+    - council_models: List of provider:model strings for council members
+    - chairman_model: provider:model string for the chairman
+    - research_model: provider:model string for research (optional)
+
+    Explicit model overrides take precedence over preset values.
+    """
     conversation_id = str(uuid.uuid4())
-    conversation = storage.create_conversation(conversation_id)
-    return conversation
+
+    # Resolve and validate model config
+    model_config = resolve_model_config(request.model_config_data)
+
+    conversation = storage.create_conversation(conversation_id, model_config=model_config)
+
+    # Map storage field to response field
+    response_data = {
+        "id": conversation["id"],
+        "created_at": conversation["created_at"],
+        "title": conversation["title"],
+        "messages": conversation["messages"],
+        "model_config_data": conversation.get("model_config")
+    }
+    return response_data
 
 
 @app.get("/api/conversations/{conversation_id}", response_model=Conversation)
@@ -103,7 +203,14 @@ async def get_conversation(conversation_id: str):
         conversation = storage.get_conversation(conversation_id)
         if conversation is None:
             raise HTTPException(status_code=404, detail="Conversation not found")
-        return conversation
+        # Map storage field to response field
+        return {
+            "id": conversation["id"],
+            "created_at": conversation["created_at"],
+            "title": conversation["title"],
+            "messages": conversation["messages"],
+            "model_config_data": conversation.get("model_config")
+        }
     except InvalidConversationIdError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except PathTraversalError as e:
