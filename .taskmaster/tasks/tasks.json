@@ -142,7 +142,7 @@
         "description": "Implement server endpoints, registry metadata, and frontend UI to let users inspect available models, choose presets, and store per-conversation model overrides without restarts.",
         "details": "1. Extend the backend model registry to annotate each model with display name, provider, estimated cost tier (low/medium/high), and speed tier; define preset bundles (Fast/Balanced/Comprehensive) that map to existing council/chairman/research roles.\n2. Add REST endpoints: `GET /api/config/models` returning all models grouped by provider with metadata; `GET /api/config/providers` listing providers and whether they are enabled; `GET /api/config/current` exposing the currently active council/chairman/research models and preset if applicable; update `POST /api/conversations` to accept an optional `models` payload (preset or explicit selection) and persist it in conversation metadata for downstream attribution.\n3. Update the council execution pipeline to read the stored conversation model overrides (falling back to global defaults) before invoking providers so chair/council/research stages honor per-conversation choices.\n4. Build a frontend settings/conversation-creation UI that fetches the config endpoints, shows models grouped by provider, displays cost/speed badges, offers preset shortcuts, and allows advanced users to customize each stage’s model; ensure selections are submitted with the conversation creation request and surfaced in conversation details for later reference.",
         "testStrategy": "• Backend unit tests for the model registry helpers (metadata enrichment, preset resolution) and the new config endpoints, verifying schema and access control.\n• Integration tests for `POST /api/conversations` showing custom model payloads are validated, stored, and later used when invoking the council pipeline.\n• Frontend component tests for the selector UI to confirm grouping, badge rendering, preset selection, and form submission payloads.\n• End-to-end test (or manual QA script) that creates a conversation with a preset override, inspects stored metadata, and confirms subsequent responses cite the chosen models.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "4",
           "7"
@@ -222,13 +222,13 @@
               5
             ],
             "details": "Design responsive components, wire form submission to include the models payload, add visual confirmation badges in conversation headers/details, and ensure fallback display when defaults are used.",
-            "status": "in-progress",
+            "status": "done",
             "testStrategy": "Frontend integration tests verifying UI renders model metadata, forms submit correct payloads, and conversation detail pages show persisted selections.",
             "parentId": "undefined",
-            "updatedAt": "2025-12-11T09:53:52.116Z"
+            "updatedAt": "2025-12-11T11:55:20.244Z"
           }
         ],
-        "updatedAt": "2025-12-11T09:53:52.116Z"
+        "updatedAt": "2025-12-11T11:55:20.244Z"
       },
       {
         "id": "9",
@@ -312,9 +312,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-11T09:53:52.117Z",
+      "lastModified": "2025-12-11T11:55:20.245Z",
       "taskCount": 14,
-      "completedCount": 8,
+      "completedCount": 9,
       "tags": [
         "master"
       ]
