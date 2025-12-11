@@ -84,6 +84,39 @@ export const api = {
   },
 
   /**
+   * Get council configuration with member metadata.
+   */
+  async getCouncilConfig() {
+    const response = await fetch(`${API_BASE}/api/config/council`);
+    if (!response.ok) {
+      throw new Error('Failed to get council config');
+    }
+    return response.json();
+  },
+
+  /**
+   * Validate a council configuration.
+   * @param {Object} config - Council configuration to validate
+   * @param {string[]} config.council_models - List of council model IDs
+   * @param {string} config.chairman_model - Optional chairman model ID
+   * @param {string} config.research_model - Optional research model ID
+   * @returns {Promise<{valid: boolean, errors: string[], warnings: string[]}>}
+   */
+  async validateCouncil(config) {
+    const response = await fetch(`${API_BASE}/api/config/council/validate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(config),
+    });
+    if (!response.ok) {
+      throw new Error('Failed to validate council');
+    }
+    return response.json();
+  },
+
+  /**
    * Get a specific conversation.
    */
   async getConversation(conversationId) {

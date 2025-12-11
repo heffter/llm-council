@@ -56,11 +56,15 @@ def validate_config() -> None:
     """
     Validate configuration on startup.
 
-    Ensures all configured models have their provider API keys set.
+    Ensures all configured models have their provider API keys set,
+    validates council size constraints (min 2, max 7), and checks
+    for provider diversity.
 
     Raises:
         ValueError: If required config is missing or invalid
     """
+    from .council_validation import validate_council_config
+
     registry = get_registry()
     errors = []
 
@@ -68,20 +72,23 @@ def validate_config() -> None:
     if not COUNCIL_MODELS:
         errors.append("COUNCIL_MODELS environment variable is required")
     else:
-        for model_id in COUNCIL_MODELS:
-            try:
-                registry.validate_model_id(model_id)
-            except ValueError as e:
-                errors.append(f"Council model '{model_id}': {e}")
+        # Use comprehensive council validation
+        result = validate_council_config(
+            council_models=COUNCIL_MODELS,
+            chairman_model=CHAIRMAN_MODEL if CHAIRMAN_MODEL else None,
+            research_model=RESEARCH_MODEL if RESEARCH_MODEL else None,
+            registry=registry
+        )
+
+        errors.extend(result.errors)
+
+        # Print warnings
+        for warning in result.warnings:
+            print(f"WARNING: {warning}")
 
     # Validate chairman model
     if not CHAIRMAN_MODEL:
         errors.append("CHAIRMAN_MODEL environment variable is required")
-    else:
-        try:
-            registry.validate_model_id(CHAIRMAN_MODEL)
-        except ValueError as e:
-            errors.append(f"Chairman model '{CHAIRMAN_MODEL}': {e}")
 
     # Validate optional research model (warn only)
     if RESEARCH_MODEL:

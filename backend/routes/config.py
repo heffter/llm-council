@@ -1,6 +1,6 @@
 """Configuration API endpoints for model and provider information."""
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 
@@ -12,6 +12,12 @@ from ..providers import (
     resolve_preset,
 )
 from ..config import COUNCIL_MODELS, CHAIRMAN_MODEL, RESEARCH_MODEL
+from ..council_validation import (
+    validate_council_config,
+    get_council_metadata,
+    MIN_COUNCIL_SIZE,
+    MAX_COUNCIL_SIZE,
+)
 
 
 router = APIRouter(prefix="/api/config", tags=["config"])
@@ -210,4 +216,98 @@ async def get_current_config():
         council_models=COUNCIL_MODELS,
         chairman_model=CHAIRMAN_MODEL,
         research_model=RESEARCH_MODEL
+    )
+
+
+# =============================================================================
+# Council Configuration Endpoints
+# =============================================================================
+
+class CouncilMemberResponse(BaseModel):
+    """Council member with metadata."""
+    id: str
+    provider: str
+    display_name: str
+    cost_tier: str
+    speed_tier: str
+    context_window: int
+
+
+class CouncilConfigResponse(BaseModel):
+    """Active council configuration with member metadata."""
+    council_models: List[CouncilMemberResponse]
+    chairman: Optional[CouncilMemberResponse]
+    research: Optional[CouncilMemberResponse]
+    constraints: Dict[str, int]
+
+
+class ValidateCouncilRequest(BaseModel):
+    """Request to validate a council configuration."""
+    council_models: List[str]
+    chairman_model: Optional[str] = None
+    research_model: Optional[str] = None
+
+
+class ValidationResultResponse(BaseModel):
+    """Validation result response."""
+    valid: bool
+    errors: List[str]
+    warnings: List[str]
+
+
+@router.get("/council")
+async def get_council_config():
+    """
+    Get the active council configuration with member metadata.
+
+    Returns the current council composition including provider and
+    capability metadata for each member.
+    """
+    council_metadata = get_council_metadata(COUNCIL_MODELS)
+
+    chairman_metadata = None
+    if CHAIRMAN_MODEL:
+        chair_meta = get_council_metadata([CHAIRMAN_MODEL])
+        if chair_meta:
+            chairman_metadata = chair_meta[0]
+
+    research_metadata = None
+    if RESEARCH_MODEL:
+        research_meta = get_council_metadata([RESEARCH_MODEL])
+        if research_meta:
+            research_metadata = research_meta[0]
+
+    return {
+        "council_models": council_metadata,
+        "chairman": chairman_metadata,
+        "research": research_metadata,
+        "constraints": {
+            "min_council_size": MIN_COUNCIL_SIZE,
+            "max_council_size": MAX_COUNCIL_SIZE
+        }
+    }
+
+
+@router.post("/council/validate", response_model=ValidationResultResponse)
+async def validate_council(request: ValidateCouncilRequest):
+    """
+    Validate a council configuration without applying it.
+
+    Checks:
+    - Council size constraints (min 2, max 7)
+    - Model ID format and validity
+    - Provider diversity (warns if all from same provider)
+
+    Returns validation result with errors and warnings.
+    """
+    result = validate_council_config(
+        council_models=request.council_models,
+        chairman_model=request.chairman_model,
+        research_model=request.research_model
+    )
+
+    return ValidationResultResponse(
+        valid=result.valid,
+        errors=result.errors,
+        warnings=result.warnings
     )

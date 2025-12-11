@@ -17,6 +17,7 @@ from .middleware import shared_secret_middleware, rate_limit_middleware
 from .logger import get_logger
 from .routes.config import router as config_router
 from .providers import get_preset, get_model_info, parse_provider_model
+from .council_validation import validate_council_config, MIN_COUNCIL_SIZE, MAX_COUNCIL_SIZE
 
 app = FastAPI(title="LLM Council API")
 
@@ -127,6 +128,7 @@ def resolve_model_config(config: Optional[ModelConfigRequest]) -> Optional[Dict[
 
     If a preset is specified, resolve it to concrete model IDs.
     If explicit models are specified, validate them.
+    Validates council size constraints (min 2, max 7).
 
     Returns dict suitable for storage or None if no config.
     """
@@ -150,6 +152,20 @@ def resolve_model_config(config: Optional[ModelConfigRequest]) -> Optional[Dict[
 
     # Explicit model overrides take precedence over preset
     if config.council_models:
+        # Validate council size
+        council_count = len(config.council_models)
+        if council_count < MIN_COUNCIL_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Council requires at least {MIN_COUNCIL_SIZE} models, got {council_count}"
+            )
+        if council_count > MAX_COUNCIL_SIZE:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Council allows at most {MAX_COUNCIL_SIZE} models, got {council_count}"
+            )
+
+        # Validate each model ID
         for model_id in config.council_models:
             validate_model_id(model_id)
         result["council_models"] = config.council_models

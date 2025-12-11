@@ -7,13 +7,14 @@ import { api } from '../api';
 
 /**
  * Custom hook to fetch and manage model configuration.
- * Fetches providers, presets, and current config on mount.
- * Provides helpers for model selection state management.
+ * Fetches providers, presets, current config, and council config on mount.
+ * Provides helpers for model selection state management and validation.
  */
 export function useConfig() {
   const [providers, setProviders] = useState([]);
   const [presets, setPresets] = useState([]);
   const [currentConfig, setCurrentConfig] = useState(null);
+  const [councilConfig, setCouncilConfig] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -23,14 +24,16 @@ export function useConfig() {
       setIsLoading(true);
       setError(null);
       try {
-        const [providersData, presetsData, currentData] = await Promise.all([
+        const [providersData, presetsData, currentData, councilData] = await Promise.all([
           api.getProviders(),
           api.getPresets(),
           api.getCurrentConfig(),
+          api.getCouncilConfig(),
         ]);
         setProviders(providersData);
         setPresets(presetsData);
         setCurrentConfig(currentData);
+        setCouncilConfig(councilData);
       } catch (err) {
         console.error('Failed to fetch config:', err);
         setError(err.message);
@@ -79,16 +82,27 @@ export function useConfig() {
     [getPreset]
   );
 
+  // Validate a council configuration
+  const validateCouncil = useCallback(async (councilModels, chairmanModel, researchModel) => {
+    return api.validateCouncil({
+      council_models: councilModels,
+      chairman_model: chairmanModel,
+      research_model: researchModel,
+    });
+  }, []);
+
   return {
     providers,
     presets,
     currentConfig,
+    councilConfig,
     isLoading,
     error,
     getAllModels,
     getModelsForProvider,
     getPreset,
     resolvePreset,
+    validateCouncil,
   };
 }
 
