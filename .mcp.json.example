@@ -1,0 +1,20 @@
+{
+  "mcpServers": {
+    "llm-council": {
+      "command": "uv",
+      "args": ["run", "python", "-m", "mcp_server"],
+      "cwd": "/path/to/llm-council",
+      "env": {
+        "COUNCIL_MODELS": "openai:gpt-4o,anthropic:claude-3-5-sonnet-latest,gemini:gemini-2.0-flash",
+        "CHAIRMAN_MODEL": "anthropic:claude-3-5-sonnet-latest",
+        "RESEARCH_MODEL": "perplexity:sonar-pro",
+        "OPENAI_API_KEY": "your-openai-key",
+        "ANTHROPIC_API_KEY": "your-anthropic-key",
+        "GOOGLE_API_KEY": "your-google-key",
+        "PERPLEXITY_API_KEY": "your-perplexity-key",
+        "CONVERSATION_CONTEXT_STRATEGY": "chairman_only",
+        "MAX_CONTEXT_EXCHANGES": "5"
+      }
+    }
+  }
+}
