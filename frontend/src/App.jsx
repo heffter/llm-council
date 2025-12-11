@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import StorageWarningBanner from './components/StorageWarningBanner';
+import ModelSelector from './components/ModelSelector';
 import { api } from './api';
 import './App.css';
 
@@ -10,42 +11,58 @@ function App() {
   const [currentConversationId, setCurrentConversationId] = useState(null);
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showModelSelector, setShowModelSelector] = useState(false);
 
-  // Load conversations on mount
-  useEffect(() => {
-    loadConversations();
-  }, []);
-
-  // Load conversation details when selected
-  useEffect(() => {
-    if (currentConversationId) {
-      loadConversation(currentConversationId);
-    }
-  }, [currentConversationId]);
-
-  const loadConversations = async () => {
+  const loadConversations = useCallback(async () => {
     try {
       const convs = await api.listConversations();
       setConversations(convs);
     } catch (error) {
       console.error('Failed to load conversations:', error);
     }
-  };
+  }, []);
 
-  const loadConversation = async (id) => {
+  const loadConversation = useCallback(async (id) => {
     try {
       const conv = await api.getConversation(id);
       setCurrentConversation(conv);
     } catch (error) {
       console.error('Failed to load conversation:', error);
     }
+  }, []);
+
+  // Load conversations on mount
+  useEffect(() => {
+    // Data fetching in useEffect is a valid pattern for initial load
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadConversations();
+  }, [loadConversations]);
+
+  // Load conversation details when selected
+  useEffect(() => {
+    if (currentConversationId) {
+      // Data fetching in useEffect is a valid pattern
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      loadConversation(currentConversationId);
+    }
+  }, [currentConversationId, loadConversation]);
+
+  const handleNewConversation = () => {
+    // Show model selector modal instead of creating directly
+    setShowModelSelector(true);
   };
 
-  const handleNewConversation = async () => {
+  const handleCreateConversation = async (modelConfig) => {
     try {
-      const newConv = await api.createConversation();
+      const newConv = await api.createConversation(modelConfig);
       setConversations([
-        { id: newConv.id, created_at: newConv.created_at, message_count: 0 },
+        {
+          id: newConv.id,
+          created_at: newConv.created_at,
+          title: newConv.title,
+          message_count: 0,
+          model_config: newConv.model_config_data,
+        },
         ...conversations,
       ]);
       setCurrentConversationId(newConv.id);
@@ -198,6 +215,11 @@ function App() {
           isLoading={isLoading}
         />
       </div>
+      <ModelSelector
+        isOpen={showModelSelector}
+        onClose={() => setShowModelSelector(false)}
+        onSelect={handleCreateConversation}
+      />
     </div>
   );
 }

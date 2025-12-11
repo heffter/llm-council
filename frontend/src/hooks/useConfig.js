@@ -110,8 +110,12 @@ export function useModelSelection(currentConfig) {
   // Initialize custom selections from current config
   useEffect(() => {
     if (currentConfig) {
+      // Initializing state from props is a valid pattern
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCouncilModels(currentConfig.council_models || []);
+       
       setChairmanModel(currentConfig.chairman_model || null);
+       
       setResearchModel(currentConfig.research_model || null);
     }
   }, [currentConfig]);

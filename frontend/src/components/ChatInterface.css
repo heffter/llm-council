@@ -264,3 +264,44 @@
   border: 1px solid #feb2b2;
   border-radius: 4px;
 }
+
+/* Conversation header with model config */
+.conversation-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 24px;
+  background: #f9fafb;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 13px;
+}
+
+.header-label {
+  color: #666;
+  font-weight: 500;
+}
+
+.header-detail {
+  color: #888;
+  margin-left: 8px;
+}
+
+/* Model config badge */
+.model-config-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.model-config-badge.preset {
+  background: #e8f0fe;
+  color: #4a90e2;
+}
+
+.model-config-badge.custom {
+  background: #fef3c7;
+  color: #d97706;
+}

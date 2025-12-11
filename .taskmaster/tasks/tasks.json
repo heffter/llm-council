@@ -209,10 +209,10 @@
               3
             ],
             "details": "Add API client methods, caching/refresh logic, and a context or store representing current preset, cost/speed labels, and advanced per-stage selections ready for UI consumption.",
-            "status": "in-progress",
+            "status": "done",
             "testStrategy": "Frontend unit tests ensuring hooks fetch once, map data correctly, and update state when users toggle presets or custom models.",
             "parentId": "undefined",
-            "updatedAt": "2025-12-11T09:46:36.070Z"
+            "updatedAt": "2025-12-11T09:53:47.339Z"
           },
           {
             "id": 6,
@@ -222,12 +222,13 @@
               5
             ],
             "details": "Design responsive components, wire form submission to include the models payload, add visual confirmation badges in conversation headers/details, and ensure fallback display when defaults are used.",
-            "status": "pending",
+            "status": "in-progress",
             "testStrategy": "Frontend integration tests verifying UI renders model metadata, forms submit correct payloads, and conversation detail pages show persisted selections.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-11T09:53:52.116Z"
           }
         ],
-        "updatedAt": "2025-12-11T09:46:36.070Z"
+        "updatedAt": "2025-12-11T09:53:52.116Z"
       },
       {
         "id": "9",
@@ -311,7 +312,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-11T09:46:36.071Z",
+      "lastModified": "2025-12-11T09:53:52.117Z",
       "taskCount": 14,
       "completedCount": 8,
       "tags": [

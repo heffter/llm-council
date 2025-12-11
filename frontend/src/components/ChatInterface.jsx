@@ -9,6 +9,24 @@ import './ChatInterface.css';
 const ALLOWED_EXTENSIONS = ['.md', '.txt', '.json', '.js', '.jsx', '.ts', '.tsx', '.py', '.html', '.css', '.yaml', '.yml', '.xml', '.csv'];
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
+/**
+ * Display badge for model configuration
+ */
+function ModelConfigBadge({ modelConfig }) {
+  if (!modelConfig) return null;
+
+  const isPreset = modelConfig.preset;
+  const label = isPreset
+    ? modelConfig.preset.charAt(0).toUpperCase() + modelConfig.preset.slice(1)
+    : 'Custom';
+
+  return (
+    <span className={`model-config-badge ${isPreset ? 'preset' : 'custom'}`}>
+      {label}
+    </span>
+  );
+}
+
 export default function ChatInterface({
   conversation,
   onSendMessage,
@@ -117,6 +135,19 @@ export default function ChatInterface({
 
   return (
     <div className="chat-interface">
+      {/* Show model config if set */}
+      {conversation.model_config_data && (
+        <div className="conversation-header">
+          <span className="header-label">Model Config:</span>
+          <ModelConfigBadge modelConfig={conversation.model_config_data} />
+          {conversation.model_config_data.council_models && (
+            <span className="header-detail">
+              {conversation.model_config_data.council_models.length} council models
+            </span>
+          )}
+        </div>
+      )}
+
       <div className="messages-container">
         {conversation.messages.length === 0 ? (
           <div className="empty-state">

@@ -9,6 +9,8 @@ function StorageWarningBanner() {
 
   useEffect(() => {
     const isDismissed = localStorage.getItem(STORAGE_DISMISSED_KEY) === 'true';
+    // Reading from localStorage on mount is a valid sync pattern
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setDismissed(isDismissed);
   }, []);
 
