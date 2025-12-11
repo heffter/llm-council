@@ -227,6 +227,8 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
     - "chairman_only": Include user messages and chairman's final responses (default)
     - "full": Include all stage 1 responses summarized
     - "none": No history, each query is independent
+
+    Model configuration is loaded from the conversation if set during creation.
     """
     try:
         # Check if conversation exists
@@ -237,6 +239,9 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
         raise HTTPException(status_code=400, detail=str(e))
     except PathTraversalError as e:
         raise HTTPException(status_code=400, detail="Invalid conversation path")
+
+    # Get model config from conversation (if set)
+    model_config = conversation.get("model_config")
 
     # Check if this is the first message
     is_first_message = len(conversation["messages"]) == 0
@@ -253,13 +258,14 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
 
     # If this is the first message, generate a title
     if is_first_message:
-        title = await generate_conversation_title(request.content)
+        title = await generate_conversation_title(request.content, model_config)
         storage.update_conversation_title(conversation_id, title)
 
-    # Run the 3-stage council process with conversation history
+    # Run the 3-stage council process with conversation history and model config
     stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
         request.content,
-        conversation_history=conversation_history
+        conversation_history=conversation_history,
+        model_config=model_config
     )
 
     # Add assistant message with all stages
@@ -289,6 +295,8 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
     - "chairman_only": Include user messages and chairman's final responses (default)
     - "full": Include all stage 1 responses summarized
     - "none": No history, each query is independent
+
+    Model configuration is loaded from the conversation if set during creation.
     """
     try:
         # Check if conversation exists
@@ -299,6 +307,9 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
         raise HTTPException(status_code=400, detail=str(e))
     except PathTraversalError as e:
         raise HTTPException(status_code=400, detail="Invalid conversation path")
+
+    # Get model config from conversation (if set)
+    model_config = conversation.get("model_config")
 
     # Check if this is the first message
     is_first_message = len(conversation["messages"]) == 0
@@ -318,22 +329,22 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             # Start title generation in parallel (don't await yet)
             title_task = None
             if is_first_message:
-                title_task = asyncio.create_task(generate_conversation_title(request.content))
+                title_task = asyncio.create_task(generate_conversation_title(request.content, model_config))
 
-            # Stage 1: Collect responses (with conversation history)
+            # Stage 1: Collect responses (with conversation history and model config)
             yield f"data: {json.dumps({'type': 'stage1_start'})}\n\n"
-            stage1_results = await stage1_collect_responses(request.content, conversation_history)
+            stage1_results = await stage1_collect_responses(request.content, conversation_history, model_config)
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
             # Stage 2: Collect rankings (no history needed - rankings are about current responses)
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
-            stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results)
+            stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results, model_config)
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
             yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
 
-            # Stage 3: Synthesize final answer (with conversation history)
+            # Stage 3: Synthesize final answer (with conversation history and model config)
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
-            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results, conversation_history)
+            stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results, conversation_history, model_config)
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
 
             # Wait for title generation if it was started (non-critical, don't fail if it errors)

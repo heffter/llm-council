@@ -182,9 +182,10 @@
               2
             ],
             "details": "Design a validation schema for incoming overrides, reuse preset helpers, store selections alongside the conversation record, and ensure audit logging/error responses mirror existing style.",
-            "status": "pending",
+            "status": "done",
             "testStrategy": "API tests covering successful preset use, explicit per-role selection, invalid payload rejection, and persistence inspection.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-10T11:28:18.124Z"
           },
           {
             "id": 4,
@@ -194,9 +195,10 @@
               3
             ],
             "details": "Modify the pipeline entry points to fetch metadata, propagate chosen models into each stage, and add safeguards when requested models are unavailable at runtime.",
-            "status": "pending",
+            "status": "in-progress",
             "testStrategy": "Integration tests stubbing the pipeline to confirm overrides are applied and defaults remain when metadata is absent.",
-            "parentId": "undefined"
+            "parentId": "undefined",
+            "updatedAt": "2025-12-10T11:49:32.021Z"
           },
           {
             "id": 5,
@@ -224,7 +226,7 @@
             "parentId": "undefined"
           }
         ],
-        "updatedAt": "2025-12-10T09:44:20.814Z"
+        "updatedAt": "2025-12-10T11:49:32.021Z"
       },
       {
         "id": "9",
@@ -308,7 +310,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-10T09:44:20.816Z",
+      "lastModified": "2025-12-10T11:49:32.022Z",
       "taskCount": 14,
       "completedCount": 8,
       "tags": [
