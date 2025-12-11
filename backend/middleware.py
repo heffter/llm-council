@@ -1,10 +1,10 @@
 """Authentication and rate limiting middleware."""
 
 import os
-import time
-from typing import Optional, Dict, Tuple
-from fastapi import Request, HTTPException
+from fastapi import Request
 from fastapi.responses import JSONResponse
+
+from .rate_limiter import get_rate_limiter
 
 
 # Configuration from environment
@@ -12,56 +12,6 @@ SHARED_WRITE_TOKEN = os.getenv("SHARED_WRITE_TOKEN")
 RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "false").lower() == "true"
 RATE_LIMIT_WINDOW_MS = int(os.getenv("RATE_LIMIT_WINDOW_MS", "60000"))
 RATE_LIMIT_MAX_REQUESTS = int(os.getenv("RATE_LIMIT_MAX_REQUESTS", "60"))
-
-
-class RateLimitStore:
-    """In-memory rate limit tracking store."""
-
-    def __init__(self):
-        """Initialize empty rate limit store."""
-        self._store: Dict[str, Tuple[int, int]] = {}  # key -> (count, reset_at_ms)
-
-    def check_and_increment(
-        self, key: str, window_ms: int, max_requests: int
-    ) -> Tuple[bool, int, int]:
-        """
-        Check rate limit and increment counter.
-
-        Args:
-            key: Rate limit key (token or IP)
-            window_ms: Window size in milliseconds
-            max_requests: Maximum requests per window
-
-        Returns:
-            Tuple of (allowed, remaining, reset_at_ms)
-        """
-        now_ms = int(time.time() * 1000)
-
-        if key in self._store:
-            count, reset_at = self._store[key]
-
-            # Reset if window expired
-            if now_ms > reset_at:
-                count = 0
-                reset_at = now_ms + window_ms
-
-        else:
-            count = 0
-            reset_at = now_ms + window_ms
-
-        # Increment count
-        count += 1
-        self._store[key] = (count, reset_at)
-
-        # Check if over limit
-        allowed = count <= max_requests
-        remaining = max(0, max_requests - count)
-
-        return allowed, remaining, reset_at
-
-
-# Global rate limit store
-_rate_limit_store = RateLimitStore()
 
 
 async def shared_secret_middleware(request: Request, call_next):
@@ -102,7 +52,7 @@ async def rate_limit_middleware(request: Request, call_next):
     """
     Middleware to enforce rate limiting per token or IP.
 
-    Uses in-memory sliding window for single-node deployments.
+    Uses configurable backend (memory or Redis) based on RATE_LIMIT_BACKEND.
     Only active if RATE_LIMIT_ENABLED=true in environment.
 
     Args:
@@ -130,24 +80,21 @@ async def rate_limit_middleware(request: Request, call_next):
             client_ip = request.client.host if request.client else "unknown"
         rate_key = f"ip:{client_ip}"
 
-    # Check rate limit
-    allowed, remaining, reset_at = _rate_limit_store.check_and_increment(
+    # Get rate limiter and check limit
+    limiter = get_rate_limiter()
+    result = await limiter.check_limit(
         rate_key, RATE_LIMIT_WINDOW_MS, RATE_LIMIT_MAX_REQUESTS
     )
 
-    if not allowed:
-        # Calculate retry-after in seconds
-        now_ms = int(time.time() * 1000)
-        retry_after = max(1, (reset_at - now_ms) // 1000)
-
+    if not result.allowed:
         return JSONResponse(
             status_code=429,
             content={"error": "Rate limit exceeded"},
             headers={
-                "Retry-After": str(retry_after),
+                "Retry-After": str(result.retry_after_seconds),
                 "X-RateLimit-Limit": str(RATE_LIMIT_MAX_REQUESTS),
                 "X-RateLimit-Remaining": "0",
-                "X-RateLimit-Reset": str(reset_at // 1000)
+                "X-RateLimit-Reset": str(result.reset_at_ms // 1000)
             }
         )
 
@@ -157,7 +104,7 @@ async def rate_limit_middleware(request: Request, call_next):
     # Add headers if it's a standard response
     if hasattr(response, 'headers'):
         response.headers["X-RateLimit-Limit"] = str(RATE_LIMIT_MAX_REQUESTS)
-        response.headers["X-RateLimit-Remaining"] = str(remaining)
-        response.headers["X-RateLimit-Reset"] = str(reset_at // 1000)
+        response.headers["X-RateLimit-Remaining"] = str(result.remaining)
+        response.headers["X-RateLimit-Reset"] = str(result.reset_at_ms // 1000)
 
     return response

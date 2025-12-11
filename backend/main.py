@@ -20,6 +20,8 @@ from .routes.export_import import router as export_import_router
 from .providers import get_preset, get_model_info, parse_provider_model
 from .council_validation import validate_council_config, MIN_COUNCIL_SIZE, MAX_COUNCIL_SIZE
 from .webhook import emit_webhook, WebhookEvent
+from .rate_limiter import get_rate_limiter, get_rate_limit_config
+from .middleware import RATE_LIMIT_ENABLED
 
 app = FastAPI(title="LLM Council API")
 
@@ -116,6 +118,46 @@ class Conversation(BaseModel):
 async def root():
     """Health check endpoint."""
     return {"status": "ok", "service": "LLM Council API"}
+
+
+@app.get("/health")
+async def health_check():
+    """
+    Detailed health check endpoint.
+
+    Returns service status including rate limiter backend health.
+    This endpoint is designed to tolerate subsystem failures without
+    failing the overall health check.
+    """
+    health = {
+        "status": "healthy",
+        "service": "LLM Council API",
+        "components": {}
+    }
+
+    # Check rate limiter health (if enabled)
+    if RATE_LIMIT_ENABLED:
+        try:
+            limiter = get_rate_limiter()
+            rate_limit_health = await limiter.health_check()
+            health["components"]["rate_limiter"] = rate_limit_health
+
+            # Mark degraded if rate limiter is in fallback mode
+            if rate_limit_health.get("status") == "degraded":
+                health["status"] = "degraded"
+        except Exception as e:
+            health["components"]["rate_limiter"] = {
+                "status": "error",
+                "error": str(e)
+            }
+            health["status"] = "degraded"
+    else:
+        health["components"]["rate_limiter"] = {
+            "status": "disabled",
+            "config": get_rate_limit_config()
+        }
+
+    return health
 
 
 @app.get("/api/conversations", response_model=List[ConversationMetadata])

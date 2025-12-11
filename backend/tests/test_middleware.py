@@ -1,105 +1,11 @@
 """Unit tests for middleware module."""
 
 import pytest
-import time
-from unittest.mock import Mock, AsyncMock
-from backend.middleware import (
-    RateLimitStore,
-    shared_secret_middleware,
-    rate_limit_middleware
-)
+from unittest.mock import Mock, AsyncMock, patch
 
 
-class TestRateLimitStore:
-    """Tests for RateLimitStore class."""
-
-    def test_first_request_allowed(self):
-        """First request should be allowed."""
-        store = RateLimitStore()
-        allowed, remaining, reset_at = store.check_and_increment(
-            "test_key", window_ms=60000, max_requests=10
-        )
-
-        assert allowed is True
-        assert remaining == 9
-        assert reset_at > int(time.time() * 1000)
-
-    def test_increments_counter(self):
-        """Counter should increment with each request."""
-        store = RateLimitStore()
-
-        # First request
-        _, remaining1, _ = store.check_and_increment("test_key", 60000, 10)
-        assert remaining1 == 9
-
-        # Second request
-        _, remaining2, _ = store.check_and_increment("test_key", 60000, 10)
-        assert remaining2 == 8
-
-    def test_exceeds_limit(self):
-        """Requests exceeding limit should be denied."""
-        store = RateLimitStore()
-        max_requests = 3
-
-        # Use up the limit
-        for i in range(max_requests):
-            allowed, _, _ = store.check_and_increment("test_key", 60000, max_requests)
-            assert allowed is True
-
-        # Next request should be denied
-        allowed, remaining, _ = store.check_and_increment("test_key", 60000, max_requests)
-        assert allowed is False
-        assert remaining == 0
-
-    def test_window_reset(self):
-        """Counter should reset after window expires."""
-        store = RateLimitStore()
-        window_ms = 100  # Short window for testing
-        max_requests = 2
-
-        # Use up limit
-        store.check_and_increment("test_key", window_ms, max_requests)
-        store.check_and_increment("test_key", window_ms, max_requests)
-
-        # Should be blocked
-        allowed, _, _ = store.check_and_increment("test_key", window_ms, max_requests)
-        assert allowed is False
-
-        # Wait for window to expire
-        time.sleep(0.15)
-
-        # Should be allowed again
-        allowed, remaining, _ = store.check_and_increment("test_key", window_ms, max_requests)
-        assert allowed is True
-        assert remaining == max_requests - 1
-
-    def test_different_keys_independent(self):
-        """Different keys should have independent counters."""
-        store = RateLimitStore()
-        max_requests = 2
-
-        # Use up limit for key1
-        store.check_and_increment("key1", 60000, max_requests)
-        store.check_and_increment("key1", 60000, max_requests)
-        allowed1, _, _ = store.check_and_increment("key1", 60000, max_requests)
-        assert allowed1 is False
-
-        # key2 should still have full quota
-        allowed2, remaining2, _ = store.check_and_increment("key2", 60000, max_requests)
-        assert allowed2 is True
-        assert remaining2 == max_requests - 1
-
-    def test_reset_at_timing(self):
-        """reset_at should be approximately window_ms in the future."""
-        store = RateLimitStore()
-        window_ms = 60000
-
-        now_ms = int(time.time() * 1000)
-        _, _, reset_at = store.check_and_increment("test_key", window_ms, 10)
-
-        # Should be approximately window_ms in the future (allow 100ms tolerance)
-        expected_reset = now_ms + window_ms
-        assert abs(reset_at - expected_reset) < 100
+# Note: RateLimitStore tests moved to test_rate_limiter.py
+# These tests now focus on middleware behavior
 
 
 class TestSharedSecretMiddleware:
