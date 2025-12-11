@@ -249,13 +249,14 @@
         "description": "Build an MCP server package that exposes the council deliberation features as MCP tools and document how to integrate it via .mcp.json.",
         "details": "• Create an `mcp/` package with `__init__.py` and `server.py` leveraging the MCP SDK; support both stdio and SSE transports so the server can run in different host environments.\n• Initialize the server with the existing backend provider/model registry (Task 8) so council/chairman/research model presets and configuration overrides are reused; load backend config to honor shared provider metadata and council override validation rules.\n• Implement MCP tools:\n  – `council_query` (submit prompt, return 3-stage transcript) and `council_query_with_models` (accept explicit model overrides validated against registry metadata).\n  – `get_conversation`, `list_conversations` (with pagination controls), and `continue_conversation` respecting backend conversation storage semantics.\n• Define schemas for each tool: precise input parameters (types, descriptions, validations such as required conversation IDs, optional pagination cursors, override lists) and documented output envelopes (success payload, error_type/error_message fields) plus standardized error handling.\n• Ensure conversation lifecycle wiring: reuse backend council pipeline functions so history-aware queries continue to function after Task 7, and marshal conversation IDs/results for MCP clients.\n• Add repository-root `.mcp.json` example configuring the server command, env vars (API keys, provider settings), and transport mode hints for Claude Code/Cursor integrations.\n• Document setup in README/docs: installation steps, running MCP server (stdio vs SSE), configuration expectations, and how to use the provided MCP toolset from client IDEs; note dependency on existing backend config and authentication controls.",
         "testStrategy": "• Unit tests for MCP tool handlers covering schema validation (missing IDs, invalid override models, pagination bounds) and error serialization; mock backend registry/conversation services to ensure correct calls.\n• Integration test that starts the MCP server in stdio mode against the backend services and exercises each tool end-to-end, verifying council queries return 3-stage transcripts, overrides are honored, and conversation continuation works.\n• Manual verification of `.mcp.json` example by launching an IDE client (e.g., Claude Code) pointing to the sample config and executing a council query.\n• Documentation check: follow README/MCP instructions from a clean environment to confirm setup succeeds without missing steps.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "8",
           "7"
         ],
         "priority": "high",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2025-12-11T11:57:18.861Z"
       },
       {
         "id": "11",
@@ -312,7 +313,7 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-11T11:55:20.245Z",
+      "lastModified": "2025-12-11T11:57:18.863Z",
       "taskCount": 14,
       "completedCount": 9,
       "tags": [
