@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import ChatInterface from './components/ChatInterface';
 import StorageWarningBanner from './components/StorageWarningBanner';
 import ModelSelector from './components/ModelSelector';
+import ImportDialog from './components/ImportDialog';
 import { api } from './api';
 import './App.css';
 
@@ -12,6 +13,7 @@ function App() {
   const [currentConversation, setCurrentConversation] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showModelSelector, setShowModelSelector] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
 
   const loadConversations = useCallback(async () => {
     try {
@@ -73,6 +75,15 @@ function App() {
 
   const handleSelectConversation = (id) => {
     setCurrentConversationId(id);
+  };
+
+  const handleImportComplete = (importedIds) => {
+    // Reload conversations to include newly imported ones
+    loadConversations();
+    // Select the first imported conversation
+    if (importedIds?.length > 0) {
+      setCurrentConversationId(importedIds[0]);
+    }
   };
 
   const handleSendMessage = async (content) => {
@@ -206,6 +217,7 @@ function App() {
         currentConversationId={currentConversationId}
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
+        onImport={() => setShowImportDialog(true)}
       />
       <div className="main-content">
         <StorageWarningBanner />
@@ -219,6 +231,11 @@ function App() {
         isOpen={showModelSelector}
         onClose={() => setShowModelSelector(false)}
         onSelect={handleCreateConversation}
+      />
+      <ImportDialog
+        isOpen={showImportDialog}
+        onClose={() => setShowImportDialog(false)}
+        onImportComplete={handleImportComplete}
       />
     </div>
   );

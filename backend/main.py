@@ -16,6 +16,7 @@ from .storage_utils import InvalidConversationIdError, PathTraversalError
 from .middleware import shared_secret_middleware, rate_limit_middleware
 from .logger import get_logger
 from .routes.config import router as config_router
+from .routes.export_import import router as export_import_router
 from .providers import get_preset, get_model_info, parse_provider_model
 from .council_validation import validate_council_config, MIN_COUNCIL_SIZE, MAX_COUNCIL_SIZE
 from .webhook import emit_webhook, WebhookEvent
@@ -24,6 +25,7 @@ app = FastAPI(title="LLM Council API")
 
 # Register routers
 app.include_router(config_router)
+app.include_router(export_import_router)
 
 
 @app.on_event("startup")

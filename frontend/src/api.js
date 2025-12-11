@@ -149,6 +149,135 @@ export const api = {
     return response.json();
   },
 
+  // ==========================================================================
+  // Export/Import Methods
+  // ==========================================================================
+
+  /**
+   * Get export/import capability information.
+   */
+  async getExportInfo() {
+    const response = await fetch(`${API_BASE}/api/conversations/export/info`);
+    if (!response.ok) {
+      throw new Error('Failed to get export info');
+    }
+    return response.json();
+  },
+
+  /**
+   * Export a single conversation.
+   * @param {string} conversationId - The conversation ID
+   * @param {string} format - Export format: 'json' or 'markdown'
+   * @returns {Promise<{blob: Blob, filename: string}>}
+   */
+  async exportConversation(conversationId, format = 'json') {
+    const response = await fetch(
+      `${API_BASE}/api/conversations/${conversationId}/export?format=${format}`
+    );
+    if (!response.ok) {
+      throw new Error('Failed to export conversation');
+    }
+
+    // Extract filename from Content-Disposition header
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = `conversation.${format === 'markdown' ? 'md' : format}`;
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="([^"]+)"/);
+      if (match) {
+        filename = match[1];
+      }
+    }
+
+    const blob = await response.blob();
+    return { blob, filename };
+  },
+
+  /**
+   * Export multiple conversations as a ZIP archive.
+   * @param {string[]} conversationIds - Optional list of conversation IDs (all if not provided)
+   * @param {boolean} includeMarkdown - Include Markdown versions in ZIP
+   * @returns {Promise<{blob: Blob, filename: string}>}
+   */
+  async exportCollection(conversationIds = null, includeMarkdown = true) {
+    const params = new URLSearchParams();
+    if (conversationIds?.length) {
+      params.append('ids', conversationIds.join(','));
+    }
+    params.append('include_markdown', includeMarkdown);
+
+    const response = await fetch(
+      `${API_BASE}/api/conversations/export/collection?${params}`
+    );
+    if (!response.ok) {
+      throw new Error('Failed to export collection');
+    }
+
+    // Extract filename from Content-Disposition header
+    const contentDisposition = response.headers.get('Content-Disposition');
+    let filename = 'llm-council-export.zip';
+    if (contentDisposition) {
+      const match = contentDisposition.match(/filename="([^"]+)"/);
+      if (match) {
+        filename = match[1];
+      }
+    }
+
+    const blob = await response.blob();
+    return { blob, filename };
+  },
+
+  /**
+   * Validate a file for import without importing.
+   * @param {File} file - The file to validate
+   * @returns {Promise<{valid: boolean, errors: string[], warnings: string[]}>}
+   */
+  async validateImport(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch(
+      `${API_BASE}/api/conversations/import/validate`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to validate import');
+    }
+    return response.json();
+  },
+
+  /**
+   * Import conversations from a file.
+   * @param {File} file - The file to import (JSON or ZIP)
+   * @param {boolean} preserveIds - Try to preserve original conversation IDs
+   * @returns {Promise<{success: boolean, conversation_ids: string[], warnings: string[], errors: string[]}>}
+   */
+  async importConversations(file, preserveIds = false) {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const params = new URLSearchParams();
+    params.append('preserve_ids', preserveIds);
+
+    const response = await fetch(
+      `${API_BASE}/api/conversations/import?${params}`,
+      {
+        method: 'POST',
+        body: formData,
+      }
+    );
+    if (!response.ok) {
+      throw new Error('Failed to import conversations');
+    }
+    return response.json();
+  },
+
+  // ==========================================================================
+  // Message Methods
+  // ==========================================================================
+
   /**
    * Send a message and receive streaming updates.
    * @param {string} conversationId - The conversation ID

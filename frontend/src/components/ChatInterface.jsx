@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import Stage1 from './Stage1';
 import Stage2 from './Stage2';
 import Stage3 from './Stage3';
+import ExportMenu from './ExportMenu';
 import './ChatInterface.css';
 
 // Allowed file extensions for upload
@@ -135,18 +136,27 @@ export default function ChatInterface({
 
   return (
     <div className="chat-interface">
-      {/* Show model config if set */}
-      {conversation.model_config_data && (
-        <div className="conversation-header">
-          <span className="header-label">Model Config:</span>
-          <ModelConfigBadge modelConfig={conversation.model_config_data} />
-          {conversation.model_config_data.council_models && (
-            <span className="header-detail">
-              {conversation.model_config_data.council_models.length} council models
-            </span>
+      {/* Conversation header with config and export */}
+      <div className="conversation-header">
+        <div className="header-left">
+          {conversation.model_config_data && (
+            <>
+              <span className="header-label">Model Config:</span>
+              <ModelConfigBadge modelConfig={conversation.model_config_data} />
+              {conversation.model_config_data.council_models && (
+                <span className="header-detail">
+                  {conversation.model_config_data.council_models.length} council models
+                </span>
+              )}
+            </>
           )}
         </div>
-      )}
+        <div className="header-right">
+          {conversation.messages.length > 0 && (
+            <ExportMenu conversationId={conversation.id} />
+          )}
+        </div>
+      </div>
 
       <div className="messages-container">
         {conversation.messages.length === 0 ? (
