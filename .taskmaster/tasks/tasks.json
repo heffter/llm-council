@@ -291,12 +291,121 @@
         "description": "Add backend endpoints and frontend features so users can export individual or bundled conversations (JSON/Markdown/ZIP) and import either conversation archives or new documents for review.",
         "details": "Backend:\n• Extend conversation service with serializers that gather full transcript, model metadata, timestamps, and aggregate rankings, and emit them either as structured JSON or Markdown rendered per the required template (including council roster, chairman, stage sections, rankings table).\n• Add GET /api/conversations/{id}/export handling format=json|markdown (default json) using UUID validation and secure file reads from data/conversations; support ?collection=true to bundle multiple conversation files into a ZIP.\n• Create collection export utility that streams ZIP archives without loading all files in memory and records manifest metadata.\n• Implement POST /api/conversations/import accepting multipart/form-data with JSON exports or ZIP collections; validate schema, ensure conversation IDs remain UUID v4 (generate new ones if missing/colliding), and persist via existing storage layer.\n• Implement POST /api/conversations/review to accept file uploads (PRD/docs), store them under dedicated folder, and enqueue a council conversation referencing the uploaded document for Stage 1 inputs.\n• Reuse shared-secret middleware and rate limiting from Task 3 automatically for new write endpoints; ensure file uploads respect size caps.\nFrontend:\n• In conversation view, add Export button with dropdown for JSON/Markdown/ZIP and call the new endpoint, triggering browser download.\n• In conversation list page, add Import control allowing drag/drop or file picker for single JSON/Markdown/ZIP files and display validation errors; trigger import API and refresh list.\n• Add \"Review Document\" action surfaced near conversation list header that opens modal to upload a document and select council models/metadata before invoking /review.\nDocumentation:\n• Update help/FAQ pages describing export formats and import workflows, emphasizing storage safety already outlined in Task 5.\nOperational considerations:\n• Backups of import/export directories belong under data/ and stay gitignored; log events for auditing.\n",
         "testStrategy": "Backend tests:\n• Unit tests for JSON and Markdown serializer helpers verifying metadata inclusion and markdown structure (heading order, ranking tables) plus ZIP collection builder ensuring manifest accuracy.\n• API tests for GET /api/conversations/{id}/export covering both formats, invalid IDs, collection exports, and permission enforcement; verify markdown body matches expected template snapshot.\n• Integration tests uploading sample JSON and ZIP files via POST /api/conversations/import confirming conversations persist with UUIDs, duplicates are handled, and malformed payloads return 400.\n• Tests for POST /api/conversations/review verifying multipart uploads succeed, documents stored securely, and council jobs are queued with references.\nFrontend tests:\n• Component tests for export dropdown wiring ensuring correct endpoint invocation and download handling.\n• UI tests for import modal validating client-side schema checks and success/error states; ensure Review Document flow submits multipart data.\nManual verification:\n• Export an existing conversation in both formats, inspect Markdown output, import it in a clean environment, and confirm the restored conversation renders correctly.\n",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "2"
         ],
         "priority": "low",
-        "subtasks": []
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Design export/import data schema and validations",
+            "description": "Document the JSON, Markdown, and ZIP manifest schemas plus validation rules for conversation exports/imports.",
+            "dependencies": [],
+            "details": "Define required fields (transcript, metadata, rankings, timestamps) and specify how UUID collisions/replacements work; capture Markdown template sections and collection manifest structure for both backend and frontend consumers.",
+            "status": "done",
+            "testStrategy": null,
+            "updatedAt": "2025-12-11T13:01:50.262Z",
+            "parentId": "undefined"
+          },
+          {
+            "id": 2,
+            "title": "Implement conversation serialization helpers",
+            "description": "Extend backend conversation service with JSON/Markdown serializers and reusable ZIP streaming utility.",
+            "dependencies": [
+              1
+            ],
+            "details": "Create serializers that gather full transcript, metadata, and rankings, rendering Markdown via the approved template and enabling stream-based ZIP bundling with manifest metadata without loading all files into memory.",
+            "status": "done",
+            "testStrategy": "Unit tests covering JSON/Markdown output structure and ZIP manifest integrity.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-11T13:01:50.267Z"
+          },
+          {
+            "id": 3,
+            "title": "Build export API endpoints",
+            "description": "Add GET /api/conversations/{id}/export supporting JSON/Markdown and optional collection ZIP bundling.",
+            "dependencies": [
+              2
+            ],
+            "details": "Validate UUIDs, secure file reads from data/conversations, plug serializers based on format param, and support ?collection=true to bundle multiple conversation files into a streamed ZIP response.",
+            "status": "done",
+            "testStrategy": "API tests for formats, invalid IDs, collection downloads, and security checks.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-11T13:01:50.273Z"
+          },
+          {
+            "id": 4,
+            "title": "Implement import and review backend endpoints",
+            "description": "Create POST /api/conversations/import and POST /api/conversations/review to handle uploads and queue reviews.",
+            "dependencies": [
+              2,
+              3
+            ],
+            "details": "Accept multipart uploads, enforce size caps, reuse shared-secret middleware and rate limiting, validate schemas, ensure UUID v4 generation when missing/colliding, persist via storage layer, and enqueue review conversations referencing uploaded documents.",
+            "status": "done",
+            "testStrategy": "API tests verifying schema validation, UUID handling, size limits, and document review queuing.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-11T13:01:50.280Z"
+          },
+          {
+            "id": 5,
+            "title": "Integrate audit logging and storage safeguards",
+            "description": "Ensure import/export actions log audit events and that backup directories stay under data/ with gitignore compliance.",
+            "dependencies": [
+              3,
+              4
+            ],
+            "details": "Add structured logs for export/import/review actions and confirm data/ backups remain gitignored per Task 5 safety messaging; document operational considerations in configs.",
+            "status": "done",
+            "testStrategy": null,
+            "parentId": "undefined",
+            "updatedAt": "2025-12-11T13:01:50.286Z"
+          },
+          {
+            "id": 6,
+            "title": "Add frontend export controls in conversation view",
+            "description": "Enhance conversation view with an Export dropdown triggering the new backend endpoint downloads.",
+            "dependencies": [
+              3,
+              5
+            ],
+            "details": "Implement UI button/dropdown for JSON/Markdown/ZIP formats, call export API with selected options, and handle browser download flows with error display.",
+            "status": "done",
+            "testStrategy": "Frontend component tests verifying dropdown behavior and API interactions.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-11T13:08:32.694Z"
+          },
+          {
+            "id": 7,
+            "title": "Add frontend import workflow on conversation list",
+            "description": "Provide drag/drop and picker-based import controls with validation errors and list refresh.",
+            "dependencies": [
+              4,
+              6
+            ],
+            "details": "Build UI to accept JSON/Markdown/ZIP files, show schema validation feedback, submit to import API, handle loading states, and refresh conversation list on success.",
+            "status": "done",
+            "testStrategy": "Frontend tests simulating uploads, error handling, and list refresh triggers.",
+            "parentId": "undefined",
+            "updatedAt": "2025-12-11T13:08:32.699Z"
+          },
+          {
+            "id": 8,
+            "title": "Implement review document upload UI and documentation updates",
+            "description": "Surface Review Document action, modal flow, and update help/FAQ on export/import usage.",
+            "dependencies": [
+              4,
+              7
+            ],
+            "details": "Add list-header action opening modal to upload documents, select council metadata, and call /review endpoint; refresh list after scheduling. Update documentation pages explaining export formats, import workflows, safety messaging, and storage locations.",
+            "status": "done",
+            "testStrategy": null,
+            "parentId": "undefined",
+            "updatedAt": "2025-12-11T13:08:32.706Z"
+          }
+        ],
+        "updatedAt": "2025-12-11T13:08:32.706Z"
       },
       {
         "id": "14",
@@ -315,9 +424,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-11T12:44:01.975Z",
+      "lastModified": "2025-12-11T13:08:32.708Z",
       "taskCount": 14,
-      "completedCount": 12,
+      "completedCount": 13,
       "tags": [
         "master"
       ]
