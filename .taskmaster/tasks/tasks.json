@@ -236,12 +236,13 @@
         "description": "Add backend validation, dynamic council overrides, new configuration endpoints, and UI enhancements to display council participation details.",
         "details": "• Extend the council configuration module to validate COUNCIL_MODELS at startup: enforce min 2 and max 7 entries, fail-fast on invalid counts, and emit warnings when all entries share the same provider.\n• Introduce a per-request override path that lets API consumers pass `council_models` when posting a conversation message; ensure the override list is validated against the registered providers/models and fallback to defaults when absent.\n• Create `GET /api/config/council` returning the active council composition with provider and capability metadata, plus `POST /api/config/council/validate` that runs the same validation logic on arbitrary model arrays without mutating state.\n• Propagate council membership data to the frontend so the header/settings view can show current members and per-model status in Stage 1 results, and annotate responses with the models that participated.\n• Document any new env vars or payload fields alongside error responses for invalid overrides, reusing the structures introduced in Task 8’s registry work.",
         "testStrategy": "• Backend unit tests for the validation helper covering boundary counts, provider diversity warnings, and error messages triggered on invalid configurations.\n• API tests for `POST /api/conversations/{id}/message` verifying accepted overrides, rejected unknown models, and fallback behavior when limits are exceeded.\n• Endpoint tests for `GET /api/config/council` and `POST /api/config/council/validate` asserting response schemas and error handling.\n• Frontend component tests that the council display renders the provided members, shows status indicators, and marks which models contributed to each response.",
-        "status": "pending",
+        "status": "in-progress",
         "dependencies": [
           "8"
         ],
         "priority": "medium",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2025-12-11T12:23:58.261Z"
       },
       {
         "id": "10",
@@ -249,14 +250,14 @@
         "description": "Build an MCP server package that exposes the council deliberation features as MCP tools and document how to integrate it via .mcp.json.",
         "details": "• Create an `mcp/` package with `__init__.py` and `server.py` leveraging the MCP SDK; support both stdio and SSE transports so the server can run in different host environments.\n• Initialize the server with the existing backend provider/model registry (Task 8) so council/chairman/research model presets and configuration overrides are reused; load backend config to honor shared provider metadata and council override validation rules.\n• Implement MCP tools:\n  – `council_query` (submit prompt, return 3-stage transcript) and `council_query_with_models` (accept explicit model overrides validated against registry metadata).\n  – `get_conversation`, `list_conversations` (with pagination controls), and `continue_conversation` respecting backend conversation storage semantics.\n• Define schemas for each tool: precise input parameters (types, descriptions, validations such as required conversation IDs, optional pagination cursors, override lists) and documented output envelopes (success payload, error_type/error_message fields) plus standardized error handling.\n• Ensure conversation lifecycle wiring: reuse backend council pipeline functions so history-aware queries continue to function after Task 7, and marshal conversation IDs/results for MCP clients.\n• Add repository-root `.mcp.json` example configuring the server command, env vars (API keys, provider settings), and transport mode hints for Claude Code/Cursor integrations.\n• Document setup in README/docs: installation steps, running MCP server (stdio vs SSE), configuration expectations, and how to use the provided MCP toolset from client IDEs; note dependency on existing backend config and authentication controls.",
         "testStrategy": "• Unit tests for MCP tool handlers covering schema validation (missing IDs, invalid override models, pagination bounds) and error serialization; mock backend registry/conversation services to ensure correct calls.\n• Integration test that starts the MCP server in stdio mode against the backend services and exercises each tool end-to-end, verifying council queries return 3-stage transcripts, overrides are honored, and conversation continuation works.\n• Manual verification of `.mcp.json` example by launching an IDE client (e.g., Claude Code) pointing to the sample config and executing a council query.\n• Documentation check: follow README/MCP instructions from a clean environment to confirm setup succeeds without missing steps.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "8",
           "7"
         ],
         "priority": "high",
         "subtasks": [],
-        "updatedAt": "2025-12-11T11:57:18.861Z"
+        "updatedAt": "2025-12-11T12:23:02.675Z"
       },
       {
         "id": "11",
@@ -313,9 +314,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-11T11:57:18.863Z",
+      "lastModified": "2025-12-11T12:23:58.262Z",
       "taskCount": 14,
-      "completedCount": 9,
+      "completedCount": 10,
       "tags": [
         "master"
       ]
