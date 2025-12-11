@@ -18,17 +18,67 @@ export const api = {
 
   /**
    * Create a new conversation.
+   * @param {Object} modelConfig - Optional model configuration
+   * @param {string} modelConfig.preset - Preset name (fast, balanced, comprehensive)
+   * @param {string[]} modelConfig.council_models - List of provider:model strings
+   * @param {string} modelConfig.chairman_model - Chairman model provider:model string
+   * @param {string} modelConfig.research_model - Research model provider:model string
    */
-  async createConversation() {
+  async createConversation(modelConfig = null) {
+    const body = modelConfig ? { model_config_data: modelConfig } : {};
     const response = await fetch(`${API_BASE}/api/conversations`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
       throw new Error('Failed to create conversation');
+    }
+    return response.json();
+  },
+
+  /**
+   * Get all available models grouped by provider.
+   */
+  async getModels() {
+    const response = await fetch(`${API_BASE}/api/config/models`);
+    if (!response.ok) {
+      throw new Error('Failed to get models');
+    }
+    return response.json();
+  },
+
+  /**
+   * Get all providers with their models.
+   */
+  async getProviders() {
+    const response = await fetch(`${API_BASE}/api/config/providers`);
+    if (!response.ok) {
+      throw new Error('Failed to get providers');
+    }
+    return response.json();
+  },
+
+  /**
+   * Get available presets.
+   */
+  async getPresets() {
+    const response = await fetch(`${API_BASE}/api/config/presets`);
+    if (!response.ok) {
+      throw new Error('Failed to get presets');
+    }
+    return response.json();
+  },
+
+  /**
+   * Get current model configuration.
+   */
+  async getCurrentConfig() {
+    const response = await fetch(`${API_BASE}/api/config/current`);
+    if (!response.ok) {
+      throw new Error('Failed to get current config');
     }
     return response.json();
   },
