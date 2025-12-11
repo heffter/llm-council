@@ -413,20 +413,21 @@
         "description": "Introduce an optional Redis-powered rate limiting backend that replaces the current single-instance memory store while automatically falling back to the existing in-memory limiter if Redis is unavailable.",
         "details": "1. Add the async redis-py client (e.g., `redis[hiredis]`) and wire a configurable Redis connection that reads `REDIS_URL`; load it lazily so the service starts even when Redis is absent.\n2. Introduce `RATE_LIMIT_BACKEND` configuration with allowed values `memory` (default) and `redis`; extend the settings loader to validate these options and expose resolved backend info on the existing config surface so the UI or ops tooling can detect which backend is active.\n3. Define an abstract `RateLimiter` contract with `check_limit` returning (allowed, retry-after, remaining) metadata and `get_remaining` for UI introspection; refactor the existing in-memory limiter into `MemoryRateLimiter` implementing the interface.\n4. Implement `RedisRateLimiter` that uses atomic `INCR`/`EXPIRE` (or `INCRBY` with Lua for sliding window) keyed as `rate_limit:{token_or_ip}:{window_start}`; ensure connection pooling, exponential backoff on transient failures, and graceful downgrade to memory when Redis is unreachable.\n5. Update rate limiting middleware to instantiate the proper backend based on configuration, log backend selection, and continue serving traffic using memory when Redis errors occur.\n6. Add Redis health reporting to `/health`: include connectivity status, last error, and fallback state so operators can detect degradation; ensure this endpoint tolerates Redis outages without failing overall health.\n7. Extend `docker-compose.yml` with an optional Redis service and document environment wiring; update README deployment instructions for enabling Redis, setting env vars, and operating in multi-instance mode.",
         "testStrategy": "• Unit tests for the RateLimiter interface implementations: verify MemoryRateLimiter parity with previous behavior and RedisRateLimiter’s atomic counters (use a Redis test container or fakeredis).\n• Configuration tests ensuring invalid RATE_LIMIT_BACKEND values raise errors, Redis is optional, and fallback to memory occurs when REDIS_URL is missing or Redis is down.\n• Middleware integration tests simulating rapid requests across multiple workers to confirm shared limits when Redis is enabled and local enforcement when memory is selected.\n• `/health` endpoint tests verifying Redis status reporting in healthy, degraded, and fallback scenarios.\n• docker-compose smoke test bringing up backend + Redis to ensure connectivity and env variables are wired correctly.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "3",
           "11"
         ],
         "priority": "low",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2025-12-11T17:33:38.784Z"
       }
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-11T13:08:32.708Z",
+      "lastModified": "2025-12-11T17:33:38.786Z",
       "taskCount": 14,
-      "completedCount": 13,
+      "completedCount": 14,
       "tags": [
         "master"
       ]
