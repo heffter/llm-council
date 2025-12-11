@@ -18,6 +18,7 @@ from ..council_validation import (
     MIN_COUNCIL_SIZE,
     MAX_COUNCIL_SIZE,
 )
+from ..webhook import get_webhook_config, WebhookEvent
 
 
 router = APIRouter(prefix="/api/config", tags=["config"])
@@ -310,4 +311,35 @@ async def validate_council(request: ValidateCouncilRequest):
         valid=result.valid,
         errors=result.errors,
         warnings=result.warnings
+    )
+
+
+# =============================================================================
+# Webhook Configuration Endpoints
+# =============================================================================
+
+class WebhookConfigResponse(BaseModel):
+    """Webhook configuration response."""
+    enabled: bool
+    url_configured: bool
+    secret_configured: bool
+    available_events: List[str]
+
+
+@router.get("/webhook")
+async def get_webhook_configuration():
+    """
+    Get the current webhook configuration status.
+
+    Returns whether webhooks are enabled, whether URL and secret are configured,
+    and the list of available event types. Does not expose the actual URL or
+    secret values for security.
+    """
+    config = get_webhook_config()
+
+    return WebhookConfigResponse(
+        enabled=config.enabled,
+        url_configured=config.url is not None,
+        secret_configured=config.secret is not None,
+        available_events=[e.value for e in WebhookEvent]
     )

@@ -18,6 +18,7 @@ from .logger import get_logger
 from .routes.config import router as config_router
 from .providers import get_preset, get_model_info, parse_provider_model
 from .council_validation import validate_council_config, MIN_COUNCIL_SIZE, MAX_COUNCIL_SIZE
+from .webhook import emit_webhook, WebhookEvent
 
 app = FastAPI(title="LLM Council API")
 
@@ -58,6 +59,7 @@ class ModelConfigRequest(BaseModel):
     council_models: Optional[List[str]] = None
     chairman_model: Optional[str] = None
     research_model: Optional[str] = None
+    webhook_url: Optional[str] = None  # Per-conversation webhook URL override
 
     @field_validator('preset')
     @classmethod
@@ -67,6 +69,17 @@ class ModelConfigRequest(BaseModel):
             if v.lower() not in valid_presets:
                 raise ValueError(f"Invalid preset: {v}. Must be one of: {', '.join(valid_presets)}")
             return v.lower()
+        return v
+
+    @field_validator('webhook_url')
+    @classmethod
+    def validate_webhook_url(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None:
+            v = v.strip()
+            if not v:
+                return None
+            if not v.startswith(('http://', 'https://')):
+                raise ValueError("Webhook URL must start with http:// or https://")
         return v
 
 
@@ -178,6 +191,10 @@ def resolve_model_config(config: Optional[ModelConfigRequest]) -> Optional[Dict[
         validate_model_id(config.research_model)
         result["research_model"] = config.research_model
 
+    # Add webhook URL override if specified
+    if config.webhook_url:
+        result["webhook_url"] = config.webhook_url
+
     return result if result else None
 
 
@@ -200,6 +217,18 @@ async def create_conversation(request: CreateConversationRequest):
     model_config = resolve_model_config(request.model_config_data)
 
     conversation = storage.create_conversation(conversation_id, model_config=model_config)
+
+    # Emit webhook for conversation creation
+    webhook_url = model_config.get("webhook_url") if model_config else None
+    emit_webhook(
+        WebhookEvent.CONVERSATION_CREATED,
+        conversation_id,
+        data={
+            "title": conversation["title"],
+            "model_config": model_config
+        },
+        webhook_url=webhook_url
+    )
 
     # Map storage field to response field
     response_data = {
@@ -277,28 +306,55 @@ async def send_message(conversation_id: str, request: SendMessageRequest):
         title = await generate_conversation_title(request.content, model_config)
         storage.update_conversation_title(conversation_id, title)
 
-    # Run the 3-stage council process with conversation history and model config
-    stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
-        request.content,
-        conversation_history=conversation_history,
-        model_config=model_config
-    )
+    # Get webhook URL override from conversation config
+    webhook_url = model_config.get("webhook_url") if model_config else None
 
-    # Add assistant message with all stages
-    storage.add_assistant_message(
-        conversation_id,
-        stage1_results,
-        stage2_results,
-        stage3_result
-    )
+    try:
+        # Run the 3-stage council process with conversation history and model config
+        stage1_results, stage2_results, stage3_result, metadata = await run_full_council(
+            request.content,
+            conversation_history=conversation_history,
+            model_config=model_config
+        )
 
-    # Return the complete response with metadata
-    return {
-        "stage1": stage1_results,
-        "stage2": stage2_results,
-        "stage3": stage3_result,
-        "metadata": metadata
-    }
+        # Add assistant message with all stages
+        storage.add_assistant_message(
+            conversation_id,
+            stage1_results,
+            stage2_results,
+            stage3_result
+        )
+
+        # Emit webhook for council completion
+        emit_webhook(
+            WebhookEvent.COUNCIL_COMPLETE,
+            conversation_id,
+            data={
+                "stage1_model_count": len(stage1_results),
+                "stage2_ranking_count": len(stage2_results),
+                "chairman_model": stage3_result.get("model"),
+                "aggregate_rankings": metadata.get("aggregate_rankings", [])
+            },
+            webhook_url=webhook_url
+        )
+
+        # Return the complete response with metadata
+        return {
+            "stage1": stage1_results,
+            "stage2": stage2_results,
+            "stage3": stage3_result,
+            "metadata": metadata
+        }
+
+    except Exception as e:
+        # Emit webhook for council error
+        emit_webhook(
+            WebhookEvent.COUNCIL_ERROR,
+            conversation_id,
+            data={"error": str(e)},
+            webhook_url=webhook_url
+        )
+        raise
 
 
 @app.post("/api/conversations/{conversation_id}/message/stream")
@@ -337,6 +393,9 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
         max_exchanges=MAX_CONTEXT_EXCHANGES
     )
 
+    # Get webhook URL override from conversation config
+    webhook_url = model_config.get("webhook_url") if model_config else None
+
     async def event_generator():
         try:
             # Add user message
@@ -352,16 +411,46 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
             stage1_results = await stage1_collect_responses(request.content, conversation_history, model_config)
             yield f"data: {json.dumps({'type': 'stage1_complete', 'data': stage1_results})}\n\n"
 
+            # Emit webhook for stage 1 completion
+            emit_webhook(
+                WebhookEvent.STAGE1_COMPLETE,
+                conversation_id,
+                data={
+                    "model_count": len(stage1_results),
+                    "models": [r.get("model") for r in stage1_results]
+                },
+                webhook_url=webhook_url
+            )
+
             # Stage 2: Collect rankings (no history needed - rankings are about current responses)
             yield f"data: {json.dumps({'type': 'stage2_start'})}\n\n"
             stage2_results, label_to_model = await stage2_collect_rankings(request.content, stage1_results, model_config)
             aggregate_rankings = calculate_aggregate_rankings(stage2_results, label_to_model)
             yield f"data: {json.dumps({'type': 'stage2_complete', 'data': stage2_results, 'metadata': {'label_to_model': label_to_model, 'aggregate_rankings': aggregate_rankings}})}\n\n"
 
+            # Emit webhook for stage 2 completion
+            emit_webhook(
+                WebhookEvent.STAGE2_COMPLETE,
+                conversation_id,
+                data={
+                    "ranking_count": len(stage2_results),
+                    "aggregate_rankings": aggregate_rankings
+                },
+                webhook_url=webhook_url
+            )
+
             # Stage 3: Synthesize final answer (with conversation history and model config)
             yield f"data: {json.dumps({'type': 'stage3_start'})}\n\n"
             stage3_result = await stage3_synthesize_final(request.content, stage1_results, stage2_results, conversation_history, model_config)
             yield f"data: {json.dumps({'type': 'stage3_complete', 'data': stage3_result})}\n\n"
+
+            # Emit webhook for stage 3 completion
+            emit_webhook(
+                WebhookEvent.STAGE3_COMPLETE,
+                conversation_id,
+                data={"chairman_model": stage3_result.get("model")},
+                webhook_url=webhook_url
+            )
 
             # Wait for title generation if it was started (non-critical, don't fail if it errors)
             if title_task:
@@ -382,10 +471,30 @@ async def send_message_stream(conversation_id: str, request: SendMessageRequest)
                 stage3_result
             )
 
+            # Emit webhook for council completion
+            emit_webhook(
+                WebhookEvent.COUNCIL_COMPLETE,
+                conversation_id,
+                data={
+                    "stage1_model_count": len(stage1_results),
+                    "stage2_ranking_count": len(stage2_results),
+                    "chairman_model": stage3_result.get("model"),
+                    "aggregate_rankings": aggregate_rankings
+                },
+                webhook_url=webhook_url
+            )
+
             # Send completion event
             yield f"data: {json.dumps({'type': 'complete'})}\n\n"
 
         except Exception as e:
+            # Emit webhook for council error
+            emit_webhook(
+                WebhookEvent.COUNCIL_ERROR,
+                conversation_id,
+                data={"error": str(e)},
+                webhook_url=webhook_url
+            )
             # Send error event
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 

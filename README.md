@@ -195,6 +195,31 @@ Access health status: `GET http://localhost:8001/health`
 
 Returns provider status, role configuration, and storage info (no secrets).
 
+### Webhook Notifications
+
+Configure webhooks to receive real-time notifications about council events:
+
+```bash
+# Global webhook configuration
+WEBHOOK_URL=https://your-server.com/webhook
+WEBHOOK_SECRET=your-hmac-secret-key
+```
+
+**Per-conversation override:**
+
+You can set a per-conversation webhook URL when creating a conversation:
+
+```json
+POST /api/conversations
+{
+  "model_config_data": {
+    "webhook_url": "https://custom-endpoint.com/hook"
+  }
+}
+```
+
+Per-conversation URLs override the global `WEBHOOK_URL` for that conversation.
+
 ## Data Storage & Safety
 
 **Important:** Conversations are stored as **unencrypted JSON files** in `data/conversations/`.
@@ -224,6 +249,84 @@ For production or sensitive data:
 **Health & Monitoring:**
 - `GET /` - Basic health check
 - `GET /health` - Detailed health and config (if enabled)
+
+**Configuration:**
+- `GET /api/config/webhook` - Get webhook configuration status
+
+## Webhook Events
+
+When webhooks are enabled, the system sends signed HTTP POST requests for council events.
+
+### Available Events
+
+| Event | Description |
+|-------|-------------|
+| `conversation.created` | New conversation created |
+| `stage1.complete` | Individual model responses collected |
+| `stage2.complete` | Peer rankings collected |
+| `stage3.complete` | Chairman synthesis complete |
+| `council.complete` | Full council process finished |
+| `council.error` | Error during council process |
+
+### Payload Format
+
+```json
+{
+  "event": "council.complete",
+  "timestamp": "2024-01-15T10:30:00.123456+00:00",
+  "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
+  "data": {
+    "stage1_model_count": 3,
+    "stage2_ranking_count": 3,
+    "chairman_model": "anthropic:claude-3-5-sonnet-latest",
+    "aggregate_rankings": [
+      {"model": "openai:gpt-4o", "average_rank": 1.33, "rankings_count": 3}
+    ]
+  }
+}
+```
+
+### Signature Verification
+
+When `WEBHOOK_SECRET` is configured, requests include an `X-Webhook-Signature` header:
+
+```
+X-Webhook-Signature: sha256=<hex-encoded-hmac>
+```
+
+Verify signatures by computing HMAC-SHA256 of the raw request body:
+
+```python
+import hmac
+import hashlib
+
+def verify_signature(payload_bytes, signature_header, secret):
+    expected = "sha256=" + hmac.new(
+        secret.encode(),
+        payload_bytes,
+        hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature_header)
+```
+
+### Retry Policy
+
+- **3 attempts** with exponential backoff: 1s, 2s, 4s delays
+- Retries on network errors and non-2xx responses
+- Failures are logged but do not block API responses
+- Delivery is asynchronous and non-blocking
+
+### Troubleshooting Webhooks
+
+**Webhooks not being sent:**
+- Verify `WEBHOOK_URL` is set in `.env`
+- Check logs for delivery errors
+- Use `GET /api/config/webhook` to verify configuration
+
+**Signature verification failing:**
+- Ensure you're using the raw request body (not parsed JSON)
+- Verify `WEBHOOK_SECRET` matches on both ends
+- Check for encoding issues (UTF-8)
 
 ## Error Handling
 
@@ -281,6 +384,7 @@ npm run lint
 │   ├── middleware.py          # Auth and rate limiting
 │   ├── retry.py               # Retry logic with backoff
 │   ├── logger.py              # Structured logging
+│   ├── webhook.py             # Webhook notifications
 │   └── providers/             # Provider abstraction
 │       ├── base.py            # Abstract base class
 │       ├── parser.py          # Provider:model notation

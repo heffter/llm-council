@@ -236,13 +236,13 @@
         "description": "Add backend validation, dynamic council overrides, new configuration endpoints, and UI enhancements to display council participation details.",
         "details": "• Extend the council configuration module to validate COUNCIL_MODELS at startup: enforce min 2 and max 7 entries, fail-fast on invalid counts, and emit warnings when all entries share the same provider.\n• Introduce a per-request override path that lets API consumers pass `council_models` when posting a conversation message; ensure the override list is validated against the registered providers/models and fallback to defaults when absent.\n• Create `GET /api/config/council` returning the active council composition with provider and capability metadata, plus `POST /api/config/council/validate` that runs the same validation logic on arbitrary model arrays without mutating state.\n• Propagate council membership data to the frontend so the header/settings view can show current members and per-model status in Stage 1 results, and annotate responses with the models that participated.\n• Document any new env vars or payload fields alongside error responses for invalid overrides, reusing the structures introduced in Task 8’s registry work.",
         "testStrategy": "• Backend unit tests for the validation helper covering boundary counts, provider diversity warnings, and error messages triggered on invalid configurations.\n• API tests for `POST /api/conversations/{id}/message` verifying accepted overrides, rejected unknown models, and fallback behavior when limits are exceeded.\n• Endpoint tests for `GET /api/config/council` and `POST /api/config/council/validate` asserting response schemas and error handling.\n• Frontend component tests that the council display renders the provided members, shows status indicators, and marks which models contributed to each response.",
-        "status": "in-progress",
+        "status": "done",
         "dependencies": [
           "8"
         ],
         "priority": "medium",
         "subtasks": [],
-        "updatedAt": "2025-12-11T12:23:58.261Z"
+        "updatedAt": "2025-12-11T12:37:30.889Z"
       },
       {
         "id": "10",
@@ -277,12 +277,13 @@
         "description": "Add configurable signed webhook delivery so external systems can receive conversation lifecycle events without interrupting the main response flow.",
         "details": "1. Configuration: extend backend settings loader to read `WEBHOOK_URL` and `WEBHOOK_SECRET`, allow per-conversation override stored in metadata, and expose the resolved webhook configuration (global + per-conversation capability flags) on `GET /api/config` alongside existing Task 8 model data. 2. Event emission: instrument conversation creation, stage completion, final response, and error paths to emit structured payloads containing event name, ISO-8601 timestamp, conversation UUID, stage/result data, and calculated `signature = hex(hmac_sha256(secret, payload_json))`. 3. Delivery worker: send events asynchronously via a non-blocking job (e.g., background task or queue) that retries on non-2xx responses or network failures with exponential backoff delays of 1s/2s/4s, logging each attempt and final success/failure without disrupting the user-facing request. 4. Reliability features: support disabling webhooks when no URL is configured, ensure per-conversation URLs override the global one when present, and redact secrets from logs. 5. Documentation: update README with setup instructions, environment variables, payload schema, available events, retry policy, and troubleshooting notes.",
         "testStrategy": "• Unit tests for the HMAC signer and payload builder verifying deterministic signatures and correct inclusion of event metadata. • Backend tests simulating conversation lifecycle to assert that each event type enqueues the proper payload and respects per-conversation webhook URLs and fallbacks. • Integration test using a mock HTTP server that forces failures to confirm the 3-attempt exponential backoff schedule and that errors do not block API responses but are logged. • Documentation check by rendering README section to ensure webhook configuration and payload examples are accurate.",
-        "status": "pending",
+        "status": "done",
         "dependencies": [
           "8"
         ],
         "priority": "low",
-        "subtasks": []
+        "subtasks": [],
+        "updatedAt": "2025-12-11T12:44:01.974Z"
       },
       {
         "id": "13",
@@ -314,9 +315,9 @@
     ],
     "metadata": {
       "version": "1.0.0",
-      "lastModified": "2025-12-11T12:23:58.262Z",
+      "lastModified": "2025-12-11T12:44:01.975Z",
       "taskCount": 14,
-      "completedCount": 10,
+      "completedCount": 12,
       "tags": [
         "master"
       ]
